@@ -309,9 +309,27 @@ def train(args: argparse.Namespace) -> None:
 
         if val_loss < best_val_loss:
             best_val_loss = val_loss
-            # Save checkpoint
-            torch.save(model.state_dict(), os.path.join(args.output_dir, "model_best.pth"))
-            logger.info("  Saved Best Model")
+            # Save checkpoint with hyperparameters for proper model reconstruction
+            checkpoint = {
+                'model_state_dict': model.state_dict(),
+                'config': {
+                    'num_categories_group': len(c_grp),
+                    'num_categories_sub': len(c_sub),
+                    'num_counter_parties': len(c_cp),
+                    'txn_dim': txn_dim,
+                    'day_dim': day_dim,
+                    'account_dim': acc_dim,
+                    'hidden_dim': args.hidden_dim,
+                    'num_layers': args.num_layers,
+                    'day_num_layers': 2,  # DayEncoder uses 2 layers
+                    'num_heads': args.num_heads,
+                    'use_balance': args.use_balance,
+                    'use_counter_party': args.use_counter_party,
+                    'dropout': args.dropout,
+                }
+            }
+            torch.save(checkpoint, os.path.join(args.output_dir, "model_best.pth"))
+            logger.info("  Saved Best Model (with config)")
             early_stop_counter = 0
         else:
             early_stop_counter += 1

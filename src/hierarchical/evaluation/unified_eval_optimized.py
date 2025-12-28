@@ -56,35 +56,80 @@ from hierarchical.training.utils import recursive_to_device
 
 
 def load_model(checkpoint_path, device, hidden_dim=128, model_type='hierarchical', args=None):
-    """Load the trained model."""
+    """Load the trained model.
+    
+    Supports two checkpoint formats:
+    1. New format: {'model_state_dict': ..., 'config': {...}}
+    2. Legacy format: Just state_dict
+    """
     logger.info(f"Loading checkpoint: {checkpoint_path}")
     checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
     
-    state_dict = checkpoint if isinstance(checkpoint, dict) and 'model_state_dict' not in checkpoint else checkpoint.get('model_state_dict', checkpoint)
-    
-    # Infer vocab sizes
-    prefix = 'day_encoder.txn_encoder.'
-
-    cat_grp_size = state_dict.get(f'{prefix}cat_group_emb.weight', torch.zeros(100, 1)).shape[0]
-    cat_sub_size = state_dict.get(f'{prefix}cat_sub_emb.weight', torch.zeros(100, 1)).shape[0]
-    cat_cp_size = state_dict.get(f'{prefix}counter_party_emb.weight', torch.zeros(100, 1)).shape[0]
-    
-    use_balance = f'{prefix}balance_proj.weight' in state_dict
-    use_cp = f'{prefix}counter_party_emb.weight' in state_dict
-    
-    # Check for Amount Binning (Exp 17)
-    use_amount_binning = f'{prefix}amount_emb.weight' in state_dict
-    num_amount_bins = 64 # Default
-    if use_amount_binning:
-        # Infer bin magnitude
-        bins = state_dict[f'{prefix}amount_emb.weight'].shape[0]
-        num_amount_bins = bins
-        logger.info(f"  Detected Amount Binning: {num_amount_bins} bins")
-    
-    # Resolve dimensions
-    d_txn = args.txn_dim if hasattr(args, 'txn_dim') and args.txn_dim else hidden_dim
-    d_day = args.day_dim if hasattr(args, 'day_dim') and args.day_dim else hidden_dim
-    d_acc = args.account_dim if hasattr(args, 'account_dim') and args.account_dim else hidden_dim
+    # Detect checkpoint format
+    if isinstance(checkpoint, dict) and 'config' in checkpoint:
+        # New format with config
+        config = checkpoint['config']
+        state_dict = checkpoint['model_state_dict']
+        logger.info(f"  Using checkpoint config: {config}")
+        
+        cat_grp_size = config['num_categories_group']
+        cat_sub_size = config['num_categories_sub']
+        cat_cp_size = config['num_counter_parties']
+        use_balance = config.get('use_balance', True)
+        use_cp = config.get('use_counter_party', True)
+        d_txn = config.get('txn_dim', config.get('hidden_dim', hidden_dim))
+        d_day = config.get('day_dim', config.get('hidden_dim', hidden_dim))
+        d_acc = config.get('account_dim', config.get('hidden_dim', hidden_dim))
+        num_layers = config.get('num_layers', 4)
+        day_num_layers = config.get('day_num_layers', 2)
+        num_heads = config.get('num_heads', 4)
+        
+        # Check for amount binning
+        use_amount_binning = 'day_encoder.txn_encoder.amount_emb.weight' in state_dict
+        num_amount_bins = 64
+        if use_amount_binning:
+            num_amount_bins = state_dict['day_encoder.txn_encoder.amount_emb.weight'].shape[0]
+            logger.info(f"  Detected Amount Binning: {num_amount_bins} bins")
+    else:
+        # Legacy format - infer from state_dict
+        state_dict = checkpoint if isinstance(checkpoint, dict) and 'model_state_dict' not in checkpoint else checkpoint.get('model_state_dict', checkpoint)
+        
+        prefix = 'day_encoder.txn_encoder.'
+        cat_grp_size = state_dict.get(f'{prefix}cat_group_emb.weight', torch.zeros(100, 1)).shape[0]
+        cat_sub_size = state_dict.get(f'{prefix}cat_sub_emb.weight', torch.zeros(100, 1)).shape[0]
+        cat_cp_size = state_dict.get(f'{prefix}counter_party_emb.weight', torch.zeros(100, 1)).shape[0]
+        
+        use_balance = f'{prefix}balance_proj.weight' in state_dict
+        use_cp = f'{prefix}counter_party_emb.weight' in state_dict
+        
+        use_amount_binning = f'{prefix}amount_emb.weight' in state_dict
+        num_amount_bins = 64
+        if use_amount_binning:
+            num_amount_bins = state_dict[f'{prefix}amount_emb.weight'].shape[0]
+            logger.info(f"  Detected Amount Binning: {num_amount_bins} bins")
+        
+        # Resolve dimensions from args or default
+        d_txn = args.txn_dim if hasattr(args, 'txn_dim') and args.txn_dim else hidden_dim
+        d_day = args.day_dim if hasattr(args, 'day_dim') and args.day_dim else hidden_dim
+        d_acc = args.account_dim if hasattr(args, 'account_dim') and args.account_dim else hidden_dim
+        
+        # Detect number of layers from checkpoint keys
+        max_layer_idx = 0
+        for key in state_dict.keys():
+            if 'transformer.layers.' in key:
+                try:
+                    parts = key.split('transformer.layers.')[1].split('.')
+                    layer_idx = int(parts[0])
+                    if layer_idx > max_layer_idx:
+                        max_layer_idx = layer_idx
+                except (ValueError, IndexError):
+                    pass
+        num_layers = max_layer_idx + 1
+        day_num_layers = 2  # Default for DayEncoder
+        num_heads = 4
+        
+        logger.info(f"  Inferred from state_dict: cat_grp={cat_grp_size}, cat_sub={cat_sub_size}, cat_cp={cat_cp_size}")
+        logger.info(f"  Detected num_layers: {num_layers}")
 
     # 1. Transaction Encoder
     txn_encoder = TransactionEncoder(
@@ -98,28 +143,12 @@ def load_model(checkpoint_path, device, hidden_dim=128, model_type='hierarchical
         num_amount_bins=num_amount_bins
     )
     
-    # Detect number of layers from checkpoint
-    max_layer_idx = 0
-    for key in state_dict.keys():
-        if 'transformer.layers.' in key:
-            try:
-                parts = key.split('transformer.layers.')[1].split('.')
-                layer_idx = int(parts[0])
-                if layer_idx > max_layer_idx:
-                    max_layer_idx = layer_idx
-            except (ValueError, IndexError):
-                pass
-    
-    detected_num_layers = max_layer_idx + 1
-    logger.info(f"  Detected num_layers: {detected_num_layers}")
-
     # 2. Day Encoder
-    # Fixed to 2 layers to match pretrain.py default
     day_encoder = DayEncoder(
         txn_encoder=txn_encoder,
         hidden_dim=d_day,
-        num_layers=2, 
-        num_heads=4
+        num_layers=day_num_layers, 
+        num_heads=num_heads
     )
     
     if model_type == 'day_ae':
@@ -129,8 +158,8 @@ def load_model(checkpoint_path, device, hidden_dim=128, model_type='hierarchical
         model = AccountEncoder(
             day_encoder=day_encoder,
             hidden_dim=d_acc,
-            num_layers=detected_num_layers,
-            num_heads=4
+            num_layers=num_layers,
+            num_heads=num_heads
         ).to(device)
         
         model.load_state_dict(state_dict)

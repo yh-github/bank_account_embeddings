@@ -94,6 +94,25 @@ python -m scripts.data_prep.consolidate_data --config config/local.yaml
 
 # Generate financial flags (labels)
 python -m scripts.data_prep.generate_labels --config config/local.yaml
+
+### Offline Tensor Preprocessing (Recommended for large datasets)
+
+For faster training, convert raw CSVs into pre-computed tensors.
+**Note**: This script defaults to filtering accounts with fewer than **10 active days** (`--min_days 10`).
+
+```bash
+python -m hierarchical.data.preprocess_tensors \
+    --mode train \
+    --data_file output/consolidated_transactions.csv \
+    --account_file output/consolidated_accounts.csv \
+    --output_dir data/processed \
+    --vocab_dir data/processed/vocab \
+    --min_days 10
+```
+
+This generates:
+- `pretrain_tensors.pt`: Compressed tensor data
+- `dataset_metadata.json`: Full arguments and configuration used for reproducibility
 ```
 
 ### Pre-training from CLI

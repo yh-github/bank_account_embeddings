@@ -18,6 +18,8 @@ Algorithm:
 import os
 import argparse
 import logging
+import json
+import pickle
 from pathlib import Path
 from multiprocessing import Pool, cpu_count
 import numpy as np
@@ -298,6 +300,13 @@ def main():
             for res in tqdm(pool.imap(process_account_chunk, chunks), total=len(chunks)):
                 all_results.extend(res)
                 
+        # Save metadata
+        metadata = vars(args)
+        metadata_file = Path(args.output_dir) / "dataset_metadata.json"
+        with open(metadata_file, 'w') as f:
+            json.dump(metadata, f, indent=4)
+        logger.info(f"  Saved metadata to {metadata_file}")
+
         logger.info(f"  Saving {len(all_results)} accounts to {output_path}")
         torch.save(all_results, output_path)
 

@@ -77,11 +77,11 @@ venv.bak/
 .dmypy.json
 dmypy.json
 
-# Data and model artifacts (user-specific)
-data/
-models/
-output/
-results/
+# Data and model artifacts (user-specific, root level only)
+/data/
+/models/
+/output/
+/results/
 *.pt
 *.pth
 *.ckpt

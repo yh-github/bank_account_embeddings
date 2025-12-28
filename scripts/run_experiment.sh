@@ -109,7 +109,7 @@ python -m hierarchical.evaluation.unified_eval_optimized \
     --output_dir "$EXP_DIR/eval" \
     --hidden_dim "$HIDDEN_DIM" \
     --T_values 7 \
-    --num_seeds 3
+    --seeds 3
 
 echo ""
 echo "========================================================"

@@ -1,4 +1,4 @@
-# Hierarchical Account Embeddings
+# Bank Account Embeddings
 
 A self-supervised framework for learning account-level embeddings from banking transaction sequences using a hierarchical transformer architecture.
 

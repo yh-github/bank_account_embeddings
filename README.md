@@ -6,8 +6,8 @@ A self-supervised framework for learning account-level embeddings from banking t
 
 ```bash
 # Clone the repository
-git clone <repository-url>
-cd hierarchical-embeddings
+git clone git@github.com:yh-github/bank_account_embeddings.git
+cd bank_account_embeddings
 
 # Install the package
 pip install -e .

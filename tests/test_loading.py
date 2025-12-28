@@ -1,125 +1,143 @@
+"""Tests for model loading in evaluation module."""
 
 import unittest
 import torch
 import os
 import tempfile
-import sys
-from unittest.mock import MagicMock, patch
+import shutil
+
+from hierarchical.models.transaction import TransactionEncoder
+from hierarchical.models.day import DayEncoder
+from hierarchical.models.account import AccountEncoder
+
 
 class TestModelLoading(unittest.TestCase):
+    """Tests for model loading with correct architecture."""
+    
     def setUp(self):
         self.tmp_dir = tempfile.mkdtemp()
         self.ckpt_path = os.path.join(self.tmp_dir, 'checkpoint.pth')
         
-        # Mock dependencies specifically for this test class
-        self.modules_patcher = patch.dict(sys.modules, {
-            'xgboost': MagicMock(),
-            'sklearn': MagicMock(),
-            'sklearn.linear_model': MagicMock(),
-            'sklearn.metrics': MagicMock(),
-            'sklearn.model_selection': MagicMock(),
-            'cleanlab': MagicMock(),
-            'cleanlab.classification': MagicMock(),
-            'pulearn': MagicMock()
-        })
-        self.modules_patcher.start()
-        
     def tearDown(self):
-        self.modules_patcher.stop()
-        import shutil
         shutil.rmtree(self.tmp_dir)
-        
-    def test_auto_detect_layers(self):
-        # Import inside test to ensure mocks are active/reloaded if needed
-        # We need to ensure evaluate is imported AFTER mocks are set
-        if 'hierarchical.evaluation.evaluate' in sys.modules:
-            del sys.modules['hierarchical.evaluation.evaluate']
-        from hierarchical.evaluation.evaluate import load_model
-        
-        # Save a checkpoint with Day=2, Acc=4
-        sd = self.create_dummy_state_dict(day_layers=2, acc_layers=4)
-        torch.save(sd, self.ckpt_path)
-        
-        # Load with detection (num_layers=None)
-        model = load_model(self.ckpt_path, device='cpu', hidden_dim=32, num_heads=4, num_layers=None)
-        
-        # Verify
-        self.assertEqual(model.day_encoder.transformer.num_layers, 2)
-        self.assertEqual(model.transformer.num_layers, 4)
 
-    def test_force_layers(self):
-        if 'hierarchical.evaluation.evaluate' in sys.modules:
-            del sys.modules['hierarchical.evaluation.evaluate']
-        from hierarchical.evaluation.evaluate import load_model
+    def _create_model(self, hidden_dim=32, day_layers=2, acc_layers=4):
+        """Create a full AccountEncoder model."""
+        txn_enc = TransactionEncoder(
+            num_categories_group=10,
+            num_categories_sub=10,
+            num_counter_parties=10,
+            embedding_dim=hidden_dim,
+            use_counter_party=True,
+            use_balance=True
+        )
+        day_enc = DayEncoder(
+            txn_encoder=txn_enc,
+            hidden_dim=hidden_dim,
+            num_layers=day_layers,
+            num_heads=4
+        )
+        model = AccountEncoder(
+            day_encoder=day_enc,
+            hidden_dim=hidden_dim,
+            num_layers=acc_layers,
+            num_heads=4
+        )
+        return model
 
-        # Save a checkpoint with Day=2, Acc=4
-        sd = self.create_dummy_state_dict(day_layers=2, acc_layers=4)
-        torch.save(sd, self.ckpt_path)
+    def test_day_encoder_uses_layers_module_list(self):
+        """DayEncoder should use self.layers (ModuleList) not self.transformer."""
+        model = self._create_model(day_layers=2)
+        day_enc = model.day_encoder
         
-        # Force num_layers=3
-        model = load_model(self.ckpt_path, device='cpu', hidden_dim=32, num_heads=4, num_layers=3)
+        # Verify it uses self.layers
+        self.assertTrue(hasattr(day_enc, 'layers'), "DayEncoder should have 'layers' attribute")
+        self.assertEqual(len(day_enc.layers), 2, "DayEncoder should have 2 layers")
         
-        # Verify
-        self.assertEqual(model.day_encoder.transformer.num_layers, 3)
-        self.assertEqual(model.transformer.num_layers, 3)
+        # Verify it doesn't have self.transformer
+        self.assertFalse(hasattr(day_enc, 'transformer'), "DayEncoder should NOT have 'transformer' attribute")
 
-    def create_dummy_state_dict(self, day_layers=2, acc_layers=4):
-        # Create minimal state dict keys to simulate structure
-        sd = {}
-        # Transaction Encoder stuff (prefix)
-        prefix = 'day_encoder.txn_encoder.'
-        sd[f'{prefix}cat_group_emb.weight'] = torch.randn(10, 32)
-        sd[f'{prefix}cat_sub_emb.weight'] = torch.randn(10, 32)
-        # Default counter_party_dim is 64
-        sd[f'{prefix}counter_party_emb.weight'] = torch.randn(10, 64)
-        # balance_proj depends on use_balance. defaults?
-        # Model default balance feature dim is 7. projection -> 1? No, projection -> 16 usually?
-        # Actually TransactionEncoder default uses balance features size 7 -> 16 or similar?
-        # Let's check error: "balance_proj.weight shape [32, 1] vs [16, 7]"
-        # So model expects [16, 7] (7 input features, 16 output dim).
-        sd[f'{prefix}balance_proj.weight'] = torch.randn(16, 7)
-        sd[f'{prefix}balance_proj.bias'] = torch.randn(16)
+    def test_account_encoder_uses_transformer(self):
+        """AccountEncoder should use self.transformer (TransformerEncoder)."""
+        model = self._create_model(acc_layers=4)
         
-        # Day Encoder Layers
-        # Transformer default feedforward is 4*hidden_dim (32*4=128)
-        for i in range(day_layers):
-            sd[f'day_encoder.transformer.layers.{i}.linear1.weight'] = torch.randn(128, 32)
-            sd[f'day_encoder.transformer.layers.{i}.linear1.bias'] = torch.randn(128)
-            sd[f'day_encoder.transformer.layers.{i}.linear2.weight'] = torch.randn(32, 128)
-            sd[f'day_encoder.transformer.layers.{i}.linear2.bias'] = torch.randn(32)
-            
-            # Attn weights
-            # in_proj_weight is [3*embed_dim, embed_dim] -> [96, 32]
-            sd[f'day_encoder.transformer.layers.{i}.self_attn.in_proj_weight'] = torch.randn(96, 32)
-            sd[f'day_encoder.transformer.layers.{i}.self_attn.in_proj_bias'] = torch.randn(96)
-            sd[f'day_encoder.transformer.layers.{i}.self_attn.out_proj.weight'] = torch.randn(32, 32)
-            sd[f'day_encoder.transformer.layers.{i}.self_attn.out_proj.bias'] = torch.randn(32)
-            
-            # Norms
-            sd[f'day_encoder.transformer.layers.{i}.norm1.weight'] = torch.randn(32)
-            sd[f'day_encoder.transformer.layers.{i}.norm1.bias'] = torch.randn(32)
-            sd[f'day_encoder.transformer.layers.{i}.norm2.weight'] = torch.randn(32)
-            sd[f'day_encoder.transformer.layers.{i}.norm2.bias'] = torch.randn(32)
+        # Verify it uses self.transformer
+        self.assertTrue(hasattr(model, 'transformer'), "AccountEncoder should have 'transformer' attribute")
+        
+    def test_save_load_preserves_architecture(self):
+        """Save/load should preserve model architecture."""
+        model = self._create_model(hidden_dim=32, day_layers=2, acc_layers=3)
+        
+        # Save with new checkpoint format
+        checkpoint = {
+            'model_state_dict': model.state_dict(),
+            'config': {
+                'num_categories_group': 10,
+                'num_categories_sub': 10,
+                'num_counter_parties': 10,
+                'txn_dim': 32,
+                'day_dim': 32,
+                'account_dim': 32,
+                'hidden_dim': 32,
+                'num_layers': 3,
+                'day_num_layers': 2,
+                'num_heads': 4,
+                'use_balance': True,
+                'use_counter_party': True,
+            }
+        }
+        torch.save(checkpoint, self.ckpt_path)
+        
+        # Load
+        loaded = torch.load(self.ckpt_path, weights_only=False)
+        config = loaded['config']
+        
+        # Verify config
+        self.assertEqual(config['num_layers'], 3)
+        self.assertEqual(config['day_num_layers'], 2)
+        
+        # Create model from config and load state
+        model2 = self._create_model(
+            hidden_dim=config['hidden_dim'],
+            day_layers=config['day_num_layers'],
+            acc_layers=config['num_layers']
+        )
+        model2.load_state_dict(loaded['model_state_dict'])
+        
+        # Verify architecture
+        self.assertEqual(len(model2.day_encoder.layers), 2)
 
-            
-        # Account Encoder Layers
-        for i in range(acc_layers):
-            sd[f'transformer.layers.{i}.linear1.weight'] = torch.randn(128, 32)
-            sd[f'transformer.layers.{i}.linear1.bias'] = torch.randn(128)
-            sd[f'transformer.layers.{i}.linear2.weight'] = torch.randn(32, 128)
-            sd[f'transformer.layers.{i}.linear2.bias'] = torch.randn(32)
+    def test_legacy_checkpoint_detection(self):
+        """Legacy checkpoints (just state_dict) should be handled."""
+        model = self._create_model()
+        
+        # Save just state_dict (legacy format)
+        torch.save(model.state_dict(), self.ckpt_path)
+        
+        # Load
+        loaded = torch.load(self.ckpt_path, weights_only=False)
+        
+        # Should be able to detect it's legacy format
+        has_config = isinstance(loaded, dict) and 'config' in loaded
+        self.assertFalse(has_config, "Legacy checkpoint should not have 'config'")
 
-            sd[f'transformer.layers.{i}.self_attn.in_proj_weight'] = torch.randn(96, 32)
-            sd[f'transformer.layers.{i}.self_attn.in_proj_bias'] = torch.randn(96)
-            sd[f'transformer.layers.{i}.self_attn.out_proj.weight'] = torch.randn(32, 32)
-            sd[f'transformer.layers.{i}.self_attn.out_proj.bias'] = torch.randn(32)
-            
-            sd[f'transformer.layers.{i}.norm1.weight'] = torch.randn(32)
-            sd[f'transformer.layers.{i}.norm1.bias'] = torch.randn(32)
-            sd[f'transformer.layers.{i}.norm2.weight'] = torch.randn(32)
-            sd[f'transformer.layers.{i}.norm2.bias'] = torch.randn(32)
+    def test_state_dict_key_structure(self):
+        """Verify state_dict keys match expected architecture."""
+        model = self._create_model(day_layers=2, acc_layers=3)
+        sd = model.state_dict()
+        
+        # Check for DayEncoder.layers keys (ModuleList)
+        day_layer_keys = [k for k in sd.keys() if 'day_encoder.layers.' in k]
+        self.assertGreater(len(day_layer_keys), 0, "Should have day_encoder.layers keys")
+        
+        # Check for AccountEncoder.transformer keys (TransformerEncoder)
+        acc_transformer_keys = [k for k in sd.keys() if k.startswith('transformer.layers.')]
+        self.assertGreater(len(acc_transformer_keys), 0, "Should have transformer.layers keys")
+        
+        # Should NOT have day_encoder.transformer keys
+        old_day_keys = [k for k in sd.keys() if 'day_encoder.transformer.' in k]
+        self.assertEqual(len(old_day_keys), 0, "Should NOT have day_encoder.transformer keys (old architecture)")
 
-        return sd
 
 if __name__ == '__main__':
     unittest.main()

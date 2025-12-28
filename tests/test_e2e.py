@@ -83,7 +83,9 @@ class TestE2ETraining(unittest.TestCase):
             no_counter_party=False,
             use_amp=False,
             max_days=10,
-            max_txns_per_day=5
+            max_txns_per_day=5,
+            vocab_dir=None,
+            gradient_checkpointing=False
         )
         
         # Run training

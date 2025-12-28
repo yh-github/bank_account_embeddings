@@ -1,0 +1,158 @@
+# Financial Flags Configuration
+# ==============================
+
+# Input/Output paths
+paths:
+  transaction_file: "Data/synovus3/DTransaction_output.csv"
+  account_file: "Data/synovus3/DAccount_output.csv"
+  recurring_pattern_file: "Data/synovus3/DRecurringPattern_output.csv"
+  output_dir: "output/"
+
+# Flag detection parameters
+parameters:
+  primacy_period_months: 3      # Emerging: months after account start
+  gap_threshold_days: 45        # Skipped Payment: gap threshold in days
+  min_transactions: 4           # Minimum transactions in pattern for gap detection (patterns have min 3)
+  bimonthly_gap_threshold: 50   # Exclude bi-monthly patterns: 3 txns with all gaps > this value
+
+# Data filters
+filters:
+  account_type: "Checking"      # Filter by account type (from DAccount.type)
+  direction: "D"                # Filter by transaction direction: D=Debit (outgoing), C=Credit (incoming)
+
+# Skipped Payment filters (applied only to skipped payment detection)
+skipped_payment_filters:
+  pattern_types:                # Filter by patternTypeBusiness (from DRecurringPattern)
+    - "DateOfMonth"
+    - "NoisyDateOfMonth"
+  # Additional pattern type with different threshold
+  monthly_payments:
+    pattern_type: "MonthlyPayments"
+    gap_threshold_days: 50
+
+# Target category groups to process
+target_category_groups:
+  - CG2500  # Credit Card Payments
+  - CG1200  # Savings & Investments
+  - CG2200  # Loan & Mortgage
+
+# Category mapping (subcategoryId -> name, group, group_name)
+# ============================================================
+categories:
+  # CG2500 - Credit Card Payments (6 subcategories)
+  C2501:
+    name: "Credit Card Payments"
+    group: "CG2500"
+    group_name: "Credit Card Payments"
+  C2502:
+    name: "Travel Credit Card"
+    group: "CG2500"
+    group_name: "Credit Card Payments"
+  C2503:
+    name: "Student Credit Card"
+    group: "CG2500"
+    group_name: "Credit Card Payments"
+  C2504:
+    name: "Secured Credit Card"
+    group: "CG2500"
+    group_name: "Credit Card Payments"
+  C2505:
+    name: "Business Credit Card"
+    group: "CG2500"
+    group_name: "Credit Card Payments"
+  C2506:
+    name: "Rewards Credit Card"
+    group: "CG2500"
+    group_name: "Credit Card Payments"
+
+  # CG1200 - Savings & Investments (7 subcategories)
+  C1201:
+    name: "Other Savings & Investments"
+    group: "CG1200"
+    group_name: "Savings & Investments"
+  C1202:
+    name: "Investments"
+    group: "CG1200"
+    group_name: "Savings & Investments"
+  C1203:
+    name: "Savings"
+    group: "CG1200"
+    group_name: "Savings & Investments"
+  C1204:
+    name: "Crypto Exchanges"
+    group: "CG1200"
+    group_name: "Savings & Investments"
+  C1205:
+    name: "Retirement Investments"
+    group: "CG1200"
+    group_name: "Savings & Investments"
+  C1206:
+    name: "Savings/College Funds"
+    group: "CG1200"
+    group_name: "Savings & Investments"
+  C1207:
+    name: "Term Deposit"
+    group: "CG1200"
+    group_name: "Savings & Investments"
+
+  # CG2200 - Loan & Mortgage (15 subcategories)
+  C2201:
+    name: "Line of Credit"
+    group: "CG2200"
+    group_name: "Loan & Mortgage"
+  C2202:
+    name: "Mortgage"
+    group: "CG2200"
+    group_name: "Loan & Mortgage"
+  C2203:
+    name: "Car Finance"
+    group: "CG2200"
+    group_name: "Loan & Mortgage"
+  C2204:
+    name: "Personal Loan"
+    group: "CG2200"
+    group_name: "Loan & Mortgage"
+  C2205:
+    name: "Student Loan"
+    group: "CG2200"
+    group_name: "Loan & Mortgage"
+  C2206:
+    name: "Equipment Finance"
+    group: "CG2200"
+    group_name: "Loan & Mortgage"
+  C2207:
+    name: "Payday & Pawn & Title Loans"
+    group: "CG2200"
+    group_name: "Loan & Mortgage"
+  C2208:
+    name: "Healthcare Finance"
+    group: "CG2200"
+    group_name: "Loan & Mortgage"
+  C2209:
+    name: "Other Loans"
+    group: "CG2200"
+    group_name: "Loan & Mortgage"
+  C2210:
+    name: "Loans"
+    group: "CG2200"
+    group_name: "Loan & Mortgage"
+  C2211:
+    name: "Buy Now Pay Later"
+    group: "CG2200"
+    group_name: "Loan & Mortgage"
+  C2212:
+    name: "Payday Loans"
+    group: "CG2200"
+    group_name: "Loan & Mortgage"
+  C2213:
+    name: "Commercial Loans"
+    group: "CG2200"
+    group_name: "Loan & Mortgage"
+  C2214:
+    name: "Title Loans"
+    group: "CG2200"
+    group_name: "Loan & Mortgage"
+  C2215:
+    name: "Debt Collection Agencies"
+    group: "CG2200"
+    group_name: "Loan & Mortgage"

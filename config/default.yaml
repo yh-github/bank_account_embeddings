@@ -1,0 +1,77 @@
+# Hierarchical Embeddings Configuration
+# ======================================
+# Copy this file to local.yaml and set your paths.
+# Set EMBEDDER_CONFIG environment variable to point to your config file.
+
+# Data Paths
+# ----------
+# Set these to your local data directories
+paths:
+  # Root directory containing bank subdirectories
+  # Expected structure: {data_dir}/{bank_name}/DTransaction_output.csv
+  data_dir: null  # REQUIRED: e.g., /path/to/primacy2/Data
+
+  # Output directory for processed data and results
+  output_dir: ./output
+
+  # Directory to save trained models
+  model_dir: ./models
+
+  # Directory for vocabulary files
+  vocab_dir: ./vocabs
+
+# Bank Configuration
+# ------------------
+# List of bank subdirectory names to process
+banks:
+  - BOC
+  - BOI
+  - Citizens
+  - Discover
+  - Dupaco
+  - FIS OFG
+  - FIS Origin
+  - Meridian
+  - PNC
+  - RBC
+  - Synovus
+  - Truist
+  - UBS
+  - USB
+  - Vacu
+  - Westpac
+  - ZKB
+
+# Model Hyperparameters
+# ---------------------
+model:
+  hidden_dim: 128
+  num_heads: 4
+  num_layers: 4
+  embedding_dim: 128
+  counter_party_dim: 64
+  dropout: 0.1
+
+# Training Parameters
+# -------------------
+training:
+  batch_size: 32
+  epochs: 10
+  learning_rate: 0.0001
+  warmup_steps: 1000
+  max_days: 365
+  min_days: 30
+
+# Evaluation Parameters
+# ---------------------
+evaluation:
+  prediction_horizon_days: 7  # T days before event
+  min_calendar_span: 90      # Minimum days between first and last transaction
+  min_active_days: 9         # Minimum days with at least one transaction
+  num_negatives: 1000        # Number of negative samples per flag
+
+# Flag Detection Parameters
+# -------------------------
+flags:
+  primacy_period_months: 3   # Months after account start for "emerging" flags
+  gap_threshold_days: 45     # Gap threshold for skipped payment detection

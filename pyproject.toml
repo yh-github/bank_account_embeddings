@@ -1,0 +1,60 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hierarchical-embeddings"
+version = "1.0.0"
+description = "Hierarchical account embeddings for banking transaction sequences"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "Proprietary"}
+authors = [
+    {name = "Personetics"}
+]
+keywords = ["embeddings", "banking", "machine-learning", "transformers"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+    "torch>=2.0.0",
+    "pandas>=2.0.0",
+    "numpy>=1.24.0",
+    "scikit-learn>=1.2.0",
+    "xgboost>=2.0.0",
+    "pyyaml>=6.0",
+    "tqdm",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov",
+]
+viz = [
+    "matplotlib",
+    "seaborn",
+]
+all = [
+    "hierarchical-embeddings[dev,viz]",
+]
+
+[project.scripts]
+train-embeddings = "hierarchical.training.pretrain:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-dir]
+"" = "src"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"

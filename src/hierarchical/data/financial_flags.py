@@ -19,7 +19,7 @@ import yaml
 import argparse
 import os
 import re
-from dateutil.relativedelta import relativedelta
+from dateutil.relativedelta import relativedelta  # type: ignore[import-untyped]
 
 
 # ============================================
@@ -32,7 +32,7 @@ def load_config(config_path: str) -> dict:
     print(f"Loading configuration from {config_path}...")
     with open(config_path, "r") as f:
         config = yaml.safe_load(f)
-    return config
+    return cast(dict[Any, Any], config)
 
 
 def get_target_subcategories(config: dict) -> list:
@@ -302,7 +302,7 @@ def detect_skipped_payment(
     gap_threshold_days: int,
     min_transactions: int = 4,
     bimonthly_gap_threshold: int = 50,
-    monthly_payments_config: dict = None,
+    monthly_payments_config: dict[Any, Any] | None = None,
 ) -> pd.DataFrame:
     """
     Detect skipped payment flags across ALL recurring patterns (not limited to specific categories).

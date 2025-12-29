@@ -153,14 +153,14 @@ class V4FeatureExtractor:
         dates_dt = pd.to_datetime(dates)
 
         dow = dates_dt.dt.dayofweek.values  # 0-6
-        dom = dates_dt.dt.day.values - 1  # 0-30
-        month = dates_dt.dt.month.values - 1  # 0-11
+        dom = dates_dt.dt.day.values - 1  # 0-30  # type: ignore[operator]
+        month = dates_dt.dt.month.values - 1  # 0-11  # type: ignore[operator]
 
         # Days since epoch, normalized to [0, 1] range (roughly per year)
         days_since_epoch = (dates_dt - self.epoch_date).dt.days.values
-        norm_days = days_since_epoch / 365.0
+        norm_days = days_since_epoch / 365.0  # type: ignore[operator]
 
-        return np.stack([dow, dom, month, norm_days], axis=1).astype(np.float32)
+        return np.stack([dow, dom, month, norm_days], axis=1, ).astype(np.float32, )  # type: ignore[arg-type]
 
     def extract_balance_features(
         self, account_id: str, dates: pd.Series
@@ -237,7 +237,7 @@ class V4FeatureExtractor:
         std = log_amounts.std() + 1e-9
         normalized = (log_amounts - mean) / std
 
-        return (sign * normalized).astype(np.float32)
+        return (sign * normalized).astype(np.float32)  # type: ignore[no-any-return]
 
 
 def build_vocabularies(

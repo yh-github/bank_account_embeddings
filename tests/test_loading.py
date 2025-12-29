@@ -15,11 +15,12 @@ class TestModelLoading(unittest.TestCase):
     """Tests for model loading with correct architecture."""
     
     def setUp(self):
-        self.tmp_dir = tempfile.mkdtemp()
+        self.tmp_dir_obj = tempfile.TemporaryDirectory()
+        self.tmp_dir = self.tmp_dir_obj.name
         self.ckpt_path = os.path.join(self.tmp_dir, 'checkpoint.pth')
         
     def tearDown(self):
-        shutil.rmtree(self.tmp_dir)
+        self.tmp_dir_obj.cleanup()
 
     def _create_model(self, hidden_dim=32, day_layers=2, acc_layers=4):
         """Create a full AccountEncoder model."""

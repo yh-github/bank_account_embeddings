@@ -10,7 +10,8 @@ from hierarchical.data.loader import load_joint_bank_data
 class TestLoader(unittest.TestCase):
     def setUp(self):
         # Create a temporary directory
-        self.test_dir = tempfile.mkdtemp()
+        self.tmp_dir = tempfile.TemporaryDirectory()
+        self.test_dir = self.tmp_dir.name
         
         # Create dummy data for Bank A
         self.txn_a_path = os.path.join(self.test_dir, 'txn_a.csv')
@@ -47,7 +48,7 @@ class TestLoader(unittest.TestCase):
         }).to_csv(self.acc_b_path, index=False)
 
     def tearDown(self):
-        shutil.rmtree(self.test_dir)
+        self.tmp_dir.cleanup()
 
     def test_joint_load_prefixing(self):
         configs = [

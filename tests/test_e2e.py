@@ -13,7 +13,8 @@ from hierarchical.training.pretrain import train
 class TestE2ETraining(unittest.TestCase):
     def setUp(self):
         # Create a temporary directory
-        self.test_dir = tempfile.mkdtemp()
+        self.tmp_dir_obj = tempfile.TemporaryDirectory()
+        self.test_dir = self.tmp_dir_obj.name
         
         # Create dummy transaction data
         self.txn_path = os.path.join(self.test_dir, 'txn.csv')
@@ -53,7 +54,7 @@ class TestE2ETraining(unittest.TestCase):
         self.output_dir = os.path.join(self.test_dir, 'output')
 
     def tearDown(self):
-        shutil.rmtree(self.test_dir)
+        self.tmp_dir_obj.cleanup()
 
     def test_training_loop(self):
         # Set seeds for reproducibility

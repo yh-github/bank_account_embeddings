@@ -57,110 +57,108 @@ def init_worker(vocabs, balance_cache, config):
     _BALANCE_CACHE = balance_cache
     _CONFIG = config
 
+def process_single_account(account_id, df, vocabs, balance_cache, config):
+    """Process a single account's data (Pure Function)."""
+    cat_group_vocab, cat_sub_vocab, counter_party_vocab = vocabs
+    max_days = config['max_days']
+    max_txns = config['max_txns']
+    
+    # Group by day
+    unique_days = sorted(df['date_only'].unique())
+    days = unique_days[-max_days:]
+    
+    day_features = []
+    for day in days:
+        day_df = df[df['date_only'] == day]
+        
+        # Meta
+        date_val = pd.to_datetime(day_df['date'].iloc[0])
+        day_month = date_val.month
+        day_weekend = 1 if date_val.dayofweek >= 5 else 0
+        
+        # Balance (from cache)
+        cache_key = (str(account_id).upper(), day)
+        base_bal = balance_cache.get(cache_key, np.zeros(7, dtype=np.float32))
+        
+        # Split Pos/Neg
+        pos_df = day_df[day_df['amount'] > 0].head(max_txns)
+        neg_df = day_df[day_df['amount'] <= 0].head(max_txns)
+        
+        streams = {}
+        for name, sub_df in [('pos', pos_df), ('neg', neg_df)]:
+            n = len(sub_df)
+            if n == 0:
+                streams[name] = None
+                continue
+            
+            # Helpers
+            def get_col(d, candidates, default='UNK'):
+                for c in candidates:
+                    if c in d.columns: return d[c].tolist()
+                return [default] * len(d)
+            
+            # Encode
+            c_grp = [cat_group_vocab.encode(x) for x in get_col(sub_df, ['personeticsCategoryGroupId', 'p_categoryGroupId'])]
+            c_sub = [cat_sub_vocab.encode(x) for x in get_col(sub_df, ['personeticsSubCategoryId', 'p_subCategoryId'])]
+            c_cp = [counter_party_vocab.encode(x) for x in get_col(sub_df, ['deviceId', 'counter_party'])]
+            
+            # Amounts
+            amounts = sub_df['amount'].values.astype(np.float32)
+            sign = np.sign(amounts)
+            log_amounts = np.log1p(np.abs(amounts))
+            norm_amounts = (log_amounts - log_amounts.mean()) / (log_amounts.std() + 1e-9)
+            amounts_feat = (sign * norm_amounts)
+            
+            # Store absolute magnitude for aux loss
+            total_volume = np.sum(np.abs(amounts))
+            log_total_volume = np.log1p(total_volume).astype(np.float32)
+            
+            # Dates
+            sub_dates = pd.to_datetime(sub_df['date'])
+            date_feats = np.stack([
+                sub_dates.dt.dayofweek.values,
+                sub_dates.dt.day.values - 1,
+                sub_dates.dt.month.values - 1,
+                (sub_dates - datetime(2020, 1, 1)).dt.days.values / 365.0
+            ], axis=1).astype(np.float32)
+            
+            # Balance
+            bal_expanded = np.tile(base_bal, (n, 1)).astype(np.float32)
+            
+            streams[name] = {
+                'cat_group': c_grp,
+                'cat_sub': c_sub,
+                'cat_cp': c_cp,
+                'amounts': amounts_feat,
+                'dates': date_feats,
+                'balance': bal_expanded,
+                'n_txns': n,
+                'log_total_volume': log_total_volume 
+            }
+        
+        day_features.append({
+            'meta': {'month': day_month, 'weekend': day_weekend},
+            'pos': streams.get('pos'),
+            'neg': streams.get('neg')
+        })
+        
+    from datetime import date as datelib
+    epoch = datelib(2020, 1, 1)
+    return {
+        'account_id': account_id, 
+        'days': day_features, 
+        'n_days': len(day_features),
+        'day_dates': [(d - epoch).days for d in days]
+    }
+
 def process_account_chunk(chunk_data):
     """
     Process a list of (account_id, transactions_df) tuples.
     Returns a list of tensor dicts.
     """
-    cat_group_vocab, cat_sub_vocab, counter_party_vocab = _VOCABS
-    max_days = _CONFIG['max_days']
-    max_txns = _CONFIG['max_txns']
-    
     results = []
-    
     for account_id, df in chunk_data:
-        # Group by day
-        unique_days = sorted(df['date_only'].unique())
-        days = unique_days[-max_days:]
-        
-        day_features = []
-        for day in days:
-            day_df = df[df['date_only'] == day]
-            
-            # Meta
-            date_val = pd.to_datetime(day_df['date'].iloc[0])
-            day_month = date_val.month
-            day_weekend = 1 if date_val.dayofweek >= 5 else 0
-            
-            # Balance (from cache)
-            cache_key = (account_id.upper(), day)
-            base_bal = _BALANCE_CACHE.get(cache_key, np.zeros(7, dtype=np.float32))
-            
-            # Split Pos/Neg
-            pos_df = day_df[day_df['amount'] > 0].head(max_txns)
-            neg_df = day_df[day_df['amount'] <= 0].head(max_txns)
-            
-            streams = {}
-            for name, sub_df in [('pos', pos_df), ('neg', neg_df)]:
-                n = len(sub_df)
-                if n == 0:
-                    streams[name] = None
-                    continue
-                
-                # Helpers
-                def get_col(d, candidates, default='UNK'):
-                    for c in candidates:
-                        if c in d.columns: return d[c].tolist()
-                    return [default] * len(d)
-                
-                # Encode
-                c_grp = [cat_group_vocab.encode(x) for x in get_col(sub_df, ['personeticsCategoryGroupId', 'p_categoryGroupId'])]
-                c_sub = [cat_sub_vocab.encode(x) for x in get_col(sub_df, ['personeticsSubCategoryId', 'p_subCategoryId'])]
-                c_cp = [counter_party_vocab.encode(x) for x in get_col(sub_df, ['deviceId', 'counter_party'])]
-                
-                # Amounts
-                amounts = sub_df['amount'].values.astype(np.float32)
-                sign = np.sign(amounts)
-                log_amounts = np.log1p(np.abs(amounts))
-                norm_amounts = (log_amounts - log_amounts.mean()) / (log_amounts.std() + 1e-9)
-                norm_amounts = (log_amounts - log_amounts.mean()) / (log_amounts.std() + 1e-9)
-                amounts_feat = (sign * norm_amounts)
-                
-                # Store absolute magnitude for aux loss
-                # Sum of absolute amounts (Total Volume)
-                total_volume = np.sum(np.abs(amounts))
-                log_total_volume = np.log1p(total_volume).astype(np.float32)
-                
-                # Dates
-                sub_dates = pd.to_datetime(sub_df['date'])
-                date_feats = np.stack([
-                    sub_dates.dt.dayofweek.values,
-                    sub_dates.dt.day.values - 1,
-                    sub_dates.dt.month.values - 1,
-                    (sub_dates - datetime(2020, 1, 1)).dt.days.values / 365.0
-                ], axis=1).astype(np.float32)
-                
-                # Balance
-                bal_expanded = np.tile(base_bal, (n, 1)).astype(np.float32)
-                
-                streams[name] = {
-                    'cat_group': c_grp, # Keep as list for now
-                    'cat_sub': c_sub,
-                    'cat_cp': c_cp,
-                    'amounts': amounts_feat,
-                    'dates': date_feats, # numpy
-                    'balance': bal_expanded, # numpy
-                    'dates': date_feats, # numpy
-                    'balance': bal_expanded, # numpy
-                    'n_txns': n,
-                    'log_total_volume': log_total_volume # Scalar target
-                }
-            
-            day_features.append({
-                'meta': {'month': day_month, 'weekend': day_weekend},
-                'pos': streams.get('pos'),
-                'neg': streams.get('neg')
-            })
-            
-        from datetime import date as datelib
-        epoch = datelib(2020, 1, 1)
-        results.append({
-            'account_id': account_id, 
-            'days': day_features, 
-            'n_days': len(day_features),
-            'day_dates': [(d - epoch).days for d in days] # Store as int offsets
-        })
-        
+        results.append(process_single_account(account_id, df, _VOCABS, _BALANCE_CACHE, _CONFIG))
     return results
 
 def precompute_balance_cache(df: pd.DataFrame, balance_extractor) -> dict:

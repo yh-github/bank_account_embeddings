@@ -6,7 +6,6 @@ import torch.nn as nn
 from .day import DayEncoder
 
 
-
 class AccountEncoder(nn.Module):
     """Hierarchical Account Encoder.
 
@@ -25,7 +24,7 @@ class AccountEncoder(nn.Module):
         num_layers: int = 2,
         num_heads: int = 4,
         max_days: int = 512,
-        dropout: float = 0.1
+        dropout: float = 0.1,
     ) -> None:
         """Initializes the AccountEncoder.
 
@@ -41,9 +40,9 @@ class AccountEncoder(nn.Module):
 
         self.day_encoder = day_encoder
         self.hidden_dim = hidden_dim
-        
+
         # Input Projection (if Pyramid)
-        start_dim = day_encoder.hidden_dim 
+        start_dim = day_encoder.hidden_dim
         if start_dim != hidden_dim:
             self.input_proj = nn.Linear(start_dim, hidden_dim)
         else:
@@ -64,7 +63,7 @@ class AccountEncoder(nn.Module):
             nhead=num_heads,
             dim_feedforward=hidden_dim * 4,
             dropout=dropout,
-            batch_first=True
+            batch_first=True,
         )
         self.transformer = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
 
@@ -82,10 +81,10 @@ class AccountEncoder(nn.Module):
              Account Embeddings [B, hidden_dim]
         """
         # Unpack Meta
-        meta = batch_data['meta']
-        day_mask = meta['day_mask']      # [B, D]
-        day_month = meta['day_month']    # [B, D]
-        day_weekend = meta['day_weekend'] # [B, D]
+        meta = batch_data["meta"]
+        day_mask = meta["day_mask"]  # [B, D]
+        day_month = meta["day_month"]  # [B, D]
+        day_weekend = meta["day_weekend"]  # [B, D]
 
         B, D = day_mask.shape
 
@@ -102,8 +101,8 @@ class AccountEncoder(nn.Module):
 
         # 1. Flatten inputs for DayEncoder
         # We process all days of all accounts in parallel sharing weights
-        flat_pos = flatten_stream(batch_data['pos'])
-        flat_neg = flatten_stream(batch_data['neg'])
+        flat_pos = flatten_stream(batch_data["pos"])
+        flat_neg = flatten_stream(batch_data["neg"])
 
         # 2. Encode Days
         # Output: [B*D, DayDim]
@@ -112,11 +111,11 @@ class AccountEncoder(nn.Module):
         # 3. Reshape back to Sequence
         # [B, D, DayDim]
         day_embs = flat_day_embs.view(B, D, -1)
-        
+
         # Project if needed
         if self.input_proj is not None:
-             day_embs = self.input_proj(day_embs)
-             
+            day_embs = self.input_proj(day_embs)
+
         # Now day_embs is [B, D, AccountDim]
 
         # 4. Add Embeddings
@@ -134,7 +133,9 @@ class AccountEncoder(nn.Module):
         # 5. Transformer Sequence
         key_padding_mask = ~day_mask  # True for PADDED positions
 
-        processed = self.transformer(sequence_input, src_key_padding_mask=key_padding_mask)
+        processed = self.transformer(
+            sequence_input, src_key_padding_mask=key_padding_mask
+        )
 
         # 6. Global Pooling
         mask_expanded = day_mask.unsqueeze(-1).float()

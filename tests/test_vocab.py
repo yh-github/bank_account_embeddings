@@ -103,7 +103,7 @@ class TestV4FeatureExtractor(unittest.TestCase):
             self.cat_group_vocab,
             self.cat_sub_vocab,
             self.counter_party_vocab,
-            epoch_date=datetime(2020, 1, 1)
+            epoch_date=datetime(2020, 1, 1),
         )
 
     def test_extract_date_features_shape(self):
@@ -150,11 +150,13 @@ class TestBuildVocabularies(unittest.TestCase):
 
     def test_build_vocabularies_returns_three(self):
         """build_vocabularies should return 3 vocabularies."""
-        df = pd.DataFrame({
-            "personeticsCategoryGroupId": ["CG1", "CG2", "CG1"],
-            "personeticsSubCategoryId": ["SC1", "SC2", "SC3"],
-            "deviceId": ["D1", "D2", "D1"],
-        })
+        df = pd.DataFrame(
+            {
+                "personeticsCategoryGroupId": ["CG1", "CG2", "CG1"],
+                "personeticsSubCategoryId": ["SC1", "SC2", "SC3"],
+                "deviceId": ["D1", "D2", "D1"],
+            }
+        )
         cat_grp, cat_sub, counter_party = build_vocabularies(df)
         self.assertIsInstance(cat_grp, CategoricalVocabulary)
         self.assertIsInstance(cat_sub, CategoricalVocabulary)
@@ -162,16 +164,18 @@ class TestBuildVocabularies(unittest.TestCase):
 
     def test_build_and_load_vocabularies(self):
         """Vocabularies should round-trip through save/load."""
-        df = pd.DataFrame({
-            "personeticsCategoryGroupId": ["CG100", "CG200"],
-            "personeticsSubCategoryId": ["SC100", "SC200"],
-            "deviceId": ["DEV1", "DEV2"],
-        })
-        
+        df = pd.DataFrame(
+            {
+                "personeticsCategoryGroupId": ["CG100", "CG200"],
+                "personeticsSubCategoryId": ["SC100", "SC200"],
+                "deviceId": ["DEV1", "DEV2"],
+            }
+        )
+
         with tempfile.TemporaryDirectory() as tmpdir:
             cat_grp, cat_sub, counter_party = build_vocabularies(df, save_dir=tmpdir)
             loaded_grp, loaded_sub, loaded_cp = load_vocabularies(tmpdir)
-        
+
         self.assertEqual(len(loaded_grp), len(cat_grp))
         self.assertEqual(loaded_grp.encode("CG100"), cat_grp.encode("CG100"))
 

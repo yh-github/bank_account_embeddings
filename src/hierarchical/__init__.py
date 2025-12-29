@@ -17,7 +17,9 @@ import warnings
 # Suppress PyTorch NestedTensor prototype user warning
 # This appears when using padded masks in TransformerEncoderLayer on certain PyTorch versions.
 # We accept the internal optimization and silence the warning.
-warnings.filterwarnings("ignore", message=".*The PyTorch API of nested tensors.*", category=UserWarning)
+warnings.filterwarnings(
+    "ignore", message=".*The PyTorch API of nested tensors.*", category=UserWarning
+)
 
 from .models import AccountEncoder, DayEncoder, TransactionEncoder
 from .data import HierarchicalDataset, collate_hierarchical, CategoricalVocabulary

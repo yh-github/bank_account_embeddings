@@ -25,7 +25,7 @@ class TransactionEncoder(nn.Module):
         num_amount_bins: int = 64,
         amount_bin_min: float = 0.0,
         amount_bin_max: float = 15.0,  # Cover log1p($1M) ~ 13.8
-        dropout: float = 0.1
+        dropout: float = 0.1,
     ) -> None:
         """Initializes the TransactionEncoder.
 
@@ -50,18 +50,22 @@ class TransactionEncoder(nn.Module):
         self.use_balance = use_balance
         self.use_counter_party = use_counter_party
         self.use_amount_binning = use_amount_binning
-        
+
         self.num_amount_bins = num_amount_bins
         self.amount_bin_min = amount_bin_min
         self.amount_bin_max = amount_bin_max
-        
+
         # Categorical embeddings
-        self.cat_group_emb = nn.Embedding(num_categories_group, category_dim, padding_idx=0)
+        self.cat_group_emb = nn.Embedding(
+            num_categories_group, category_dim, padding_idx=0
+        )
         self.cat_sub_emb = nn.Embedding(num_categories_sub, category_dim, padding_idx=0)
-        
+
         if use_counter_party:
-            self.counter_party_emb = nn.Embedding(num_counter_parties, counter_party_dim, padding_idx=0)
-        
+            self.counter_party_emb = nn.Embedding(
+                num_counter_parties, counter_party_dim, padding_idx=0
+            )
+
         # Numerical projections
         if use_amount_binning:
             # Embedding for discrete bins
@@ -69,27 +73,27 @@ class TransactionEncoder(nn.Module):
         else:
             # Linear projection for continuous
             self.amount_proj = nn.Linear(1, 16)
-        
+
         # Date encoding: day of week (7) + day of month (31)
         self.date_day_of_week_emb = nn.Embedding(7, 8)
         self.date_day_of_month_emb = nn.Embedding(31, 8)
-        
+
         # Balance features
         if use_balance:
             # starting_balance (1) + stats (6) = 7 features
             self.balance_proj = nn.Linear(7, 16)
-        
+
         # Combine all features
         total_dim = category_dim * 2
         if use_counter_party:
             total_dim += counter_party_dim
-            
+
         total_dim += 16  # Amount
         total_dim += 8 * 2  # Date (dow, dom)
-        
+
         if use_balance:
             total_dim += 16
-        
+
         # Fusion layers
         self.fusion = nn.Sequential(
             nn.Linear(total_dim, embedding_dim * 2),
@@ -97,9 +101,9 @@ class TransactionEncoder(nn.Module):
             nn.Dropout(dropout),
             nn.Linear(embedding_dim * 2, embedding_dim),
             nn.ReLU(),
-            nn.Dropout(dropout)
+            nn.Dropout(dropout),
         )
-        
+
         self.norm = nn.LayerNorm(embedding_dim)
 
     def forward(
@@ -109,7 +113,7 @@ class TransactionEncoder(nn.Module):
         counter_party_ids: torch.Tensor | None = None,
         amounts: torch.Tensor | None = None,
         dates: torch.Tensor | None = None,
-        balance_features: torch.Tensor | None = None
+        balance_features: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Forward pass.
 
@@ -126,33 +130,35 @@ class TransactionEncoder(nn.Module):
         """
         # Categorical embeddings
         cat_group_emb = self.cat_group_emb(category_group_ids)  # [B, L, cat_dim]
-        cat_sub_emb = self.cat_sub_emb(category_sub_ids)        # [B, L, cat_dim]
-        
+        cat_sub_emb = self.cat_sub_emb(category_sub_ids)  # [B, L, cat_dim]
+
         features = [cat_group_emb, cat_sub_emb]
-        
+
         if self.use_counter_party:
             if counter_party_ids is None:
                 raise ValueError("Model expects counter_party_ids but None provided.")
             cp_emb = self.counter_party_emb(counter_party_ids)  # [B, L, cp_dim]
             features.append(cp_emb)
-        
+
         # Amount Encoding
         if amounts is None:
-             raise ValueError("Model expects amounts but None provided.")
+            raise ValueError("Model expects amounts but None provided.")
 
         if self.use_amount_binning:
             # Discretize amounts into bins
             val = amounts
             if val.dim() == 3:
                 val = val.squeeze(-1)
-            
+
             # Clip to range
             val = val.clamp(min=self.amount_bin_min, max=self.amount_bin_max)
             # Normalize to 0-1
-            val_norm = (val - self.amount_bin_min) / (self.amount_bin_max - self.amount_bin_min)
+            val_norm = (val - self.amount_bin_min) / (
+                self.amount_bin_max - self.amount_bin_min
+            )
             # Scale to indices
             bin_indices = (val_norm * (self.num_amount_bins - 1)).long()
-            
+
             amount_emb = self.amount_emb(bin_indices)
         else:
             # Linear Projection
@@ -160,16 +166,16 @@ class TransactionEncoder(nn.Module):
             if amount_input.dim() == 2:
                 amount_input = amount_input.unsqueeze(-1)
             amount_emb = self.amount_proj(amount_input)
-            
+
         features.append(amount_emb)
-        
+
         # Date encoding
         if dates is None:
             raise ValueError("Model expects dates but None provided.")
 
         dow_emb = self.date_day_of_week_emb(dates[..., 0].long())
         dom_emb = self.date_day_of_month_emb(dates[..., 1].long())
-        
+
         features.extend([dow_emb, dom_emb])
 
         if self.use_balance:
@@ -181,10 +187,10 @@ class TransactionEncoder(nn.Module):
                 B, L = amounts.shape[:2]
                 device = amounts.device
                 features.append(torch.zeros(B, L, 16, device=device))
-        
+
         # Concatenate and fuse
         combined = torch.cat(features, dim=-1)
         txn_embeddings = self.fusion(combined)
         txn_embeddings = self.norm(txn_embeddings)
-        
+
         return txn_embeddings

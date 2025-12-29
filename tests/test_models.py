@@ -19,7 +19,7 @@ class TestTransactionEncoder(unittest.TestCase):
             num_counter_parties=10,
             embedding_dim=32,
             use_counter_party=True,
-            use_balance=False
+            use_balance=False,
         )
 
     def test_forward_shape(self):
@@ -37,7 +37,7 @@ class TestTransactionEncoder(unittest.TestCase):
             counter_party_ids=counter_party,
             amounts=amount,
             dates=dates,
-            balance_features=None
+            balance_features=None,
         )
         self.assertEqual(out.shape, (B, L, 32))
 
@@ -49,7 +49,7 @@ class TestTransactionEncoder(unittest.TestCase):
             num_counter_parties=10,
             embedding_dim=32,
             use_counter_party=False,
-            use_balance=False
+            use_balance=False,
         )
         B, L = 3, 5
         out = encoder(
@@ -84,13 +84,10 @@ class TestDayEncoder(unittest.TestCase):
             num_counter_parties=10,
             embedding_dim=32,
             use_counter_party=True,
-            use_balance=False
+            use_balance=False,
         )
         self.day_enc = DayEncoder(
-            txn_encoder=txn_enc,
-            hidden_dim=32,
-            num_layers=1,
-            num_heads=2
+            txn_encoder=txn_enc, hidden_dim=32, num_layers=1, num_heads=2
         )
 
     def _make_stream_data(self, N: int, T: int) -> dict:
@@ -139,23 +136,18 @@ class TestAccountEncoder(unittest.TestCase):
             num_counter_parties=10,
             embedding_dim=32,
             use_counter_party=True,
-            use_balance=False
+            use_balance=False,
         )
         day_enc = DayEncoder(
-            txn_encoder=txn_enc,
-            hidden_dim=32,
-            num_layers=1,
-            num_heads=2
+            txn_encoder=txn_enc, hidden_dim=32, num_layers=1, num_heads=2
         )
         self.acc_enc = AccountEncoder(
-            day_encoder=day_enc,
-            hidden_dim=32,
-            num_layers=1,
-            num_heads=2
+            day_encoder=day_enc, hidden_dim=32, num_layers=1, num_heads=2
         )
 
     def _make_batch_data(self, B: int, D: int, T: int) -> dict:
         """Helper to create batch data dict matching collate output."""
+
         def make_stream(B: int, D: int, T: int) -> dict:
             return {
                 "cat_group": torch.randint(0, 10, (B, D, T)),

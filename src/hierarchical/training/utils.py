@@ -17,12 +17,12 @@ def setup_logger(output_dir: str) -> logging.Logger:
     Returns:
         The configured logger.
     """
-    log_format = '%(asctime)s - %(levelname)s - %(message)s'
+    log_format = "%(asctime)s - %(levelname)s - %(message)s"
     # Ensure dir
     os.makedirs(output_dir, exist_ok=True)
 
     # Check if logger already exists to avoid duplicate handlers
-    logger = logging.getLogger('train')
+    logger = logging.getLogger("train")
     if logger.hasHandlers():
         logger.handlers.clear()
 

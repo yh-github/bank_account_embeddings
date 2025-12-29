@@ -4,7 +4,9 @@ import torch
 import torch.nn.functional as F
 
 
-def contrastive_loss(emb1: torch.Tensor, emb2: torch.Tensor, temperature: float = 0.07) -> torch.Tensor:
+def contrastive_loss(
+    emb1: torch.Tensor, emb2: torch.Tensor, temperature: float = 0.07
+) -> torch.Tensor:
     """Computes the SimCLR (InfoNCE) loss.
 
     Args:
@@ -32,7 +34,7 @@ def contrastive_loss_with_hard_negatives(
     emb_anchor: torch.Tensor,
     emb_positive: torch.Tensor,
     emb_hard_neg: torch.Tensor | None,
-    temperature: float = 0.07
+    temperature: float = 0.07,
 ) -> torch.Tensor:
     """Computes SimCLR loss with explicit hard negatives.
 
@@ -57,7 +59,9 @@ def contrastive_loss_with_hard_negatives(
 
     # 2. Similarity vector: Anchor vs its Hard Negative (B, 1)
     # Only anchor[i] vs hard_neg[i] matters
-    logits_hard = torch.einsum('nc,nc->n', [emb_anchor, emb_hard_neg]).unsqueeze(-1) / temperature
+    logits_hard = (
+        torch.einsum("nc,nc->n", [emb_anchor, emb_hard_neg]).unsqueeze(-1) / temperature
+    )
 
     # 3. Concatenate: [Batch_Positives, Hard_Negative] -> (B, B+1)
     # The positive for anchor[i] is at index i in logits_batch.

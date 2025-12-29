@@ -23,7 +23,7 @@ class DayEncoder(nn.Module):
         hidden_dim: int = 128,
         num_layers: int = 1,
         num_heads: int = 4,
-        dropout: float = 0.1
+        dropout: float = 0.1,
     ) -> None:
         """Initializes the DayEncoder.
 
@@ -45,8 +45,8 @@ class DayEncoder(nn.Module):
             self.input_proj = nn.Linear(start_dim, hidden_dim)
         else:
             self.input_proj = None
-            
-        self.use_checkpointing = False # Default Off
+
+        self.use_checkpointing = False  # Default Off
 
         # Standard Transformer Layers
         encoder_layer = nn.TransformerEncoderLayer(
@@ -54,12 +54,15 @@ class DayEncoder(nn.Module):
             nhead=num_heads,
             dim_feedforward=hidden_dim * 4,
             dropout=dropout,
-            batch_first=True
+            batch_first=True,
         )
-        # self.transformer = nn.TransformerEncoder(encoder_layer, num_layers=num_layers) 
+        # self.transformer = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
         # Replaced with ModuleList to support checkpointing
         import copy
-        self.layers = nn.ModuleList([copy.deepcopy(encoder_layer) for _ in range(num_layers)])
+
+        self.layers = nn.ModuleList(
+            [copy.deepcopy(encoder_layer) for _ in range(num_layers)]
+        )
 
         # Projection to combine Inflow + Outflow
         # Concatenate: Dim * 2 -> Dim
@@ -79,35 +82,33 @@ class DayEncoder(nn.Module):
             Pooled vector [N_Days, Dim]
         """
         # Unpack inputs
-        cat_group = stream_data['cat_group']
-        cat_sub = stream_data['cat_sub']
-        cat_cp = stream_data.get('cat_cp')
-        amounts = stream_data['amounts']
-        dates = stream_data['dates']
-        balance = stream_data.get('balance')
-        mask = stream_data['mask']
-        has_data = stream_data['has_data']
+        cat_group = stream_data["cat_group"]
+        cat_sub = stream_data["cat_sub"]
+        cat_cp = stream_data.get("cat_cp")
+        amounts = stream_data["amounts"]
+        dates = stream_data["dates"]
+        balance = stream_data.get("balance")
+        mask = stream_data["mask"]
+        has_data = stream_data["has_data"]
 
         # 1. Encode Transactions
         # [N, T, Dim]
-        txn_emb = self.txn_encoder(
-            cat_group, cat_sub, cat_cp, amounts, dates, balance
-        )
+        txn_emb = self.txn_encoder(cat_group, cat_sub, cat_cp, amounts, dates, balance)
 
         # Project if needed
         if self.input_proj is not None:
-             txn_emb = self.input_proj(txn_emb)
+            txn_emb = self.input_proj(txn_emb)
 
         input_mask = mask.bool()
-        
+
         # Optimization: Return early if all empty
         if (~input_mask).all():
-             return torch.zeros(mask.size(0), self.hidden_dim, device=txn_emb.device)
+            return torch.zeros(mask.size(0), self.hidden_dim, device=txn_emb.device)
 
         # 2. Transformer
         # Transformer expects True for IGNORED positions
         key_padding_mask = ~input_mask
-        
+
         # Prevent NaN: If a row is all True (all masked), set first col to False
         all_masked = key_padding_mask.all(dim=1)
         if all_masked.any():
@@ -118,10 +119,12 @@ class DayEncoder(nn.Module):
         x = txn_emb
         for layer in self.layers:
             if self.use_checkpointing and x.requires_grad:
-                x = torch.utils.checkpoint.checkpoint(layer, x, src_key_padding_mask=key_padding_mask, use_reentrant=False)
+                x = torch.utils.checkpoint.checkpoint(
+                    layer, x, src_key_padding_mask=key_padding_mask, use_reentrant=False
+                )
             else:
                 x = layer(x, src_key_padding_mask=key_padding_mask)
-        
+
         processed = x
 
         # 3. Pooling (Mean)
@@ -129,17 +132,15 @@ class DayEncoder(nn.Module):
         sum_emb = (processed * mask_expanded).sum(dim=1)
         cnt = mask_expanded.sum(dim=1).clamp(min=1e-9)
 
-        pooled = sum_emb / cnt # [N, Dim]
-        
+        pooled = sum_emb / cnt  # [N, Dim]
+
         # Apply has_data mask (Day level)
         # has_data is [B, D]
         has_data_mask = has_data.unsqueeze(-1).float()
         return pooled * has_data_mask
 
     def forward(
-        self,
-        pos_data: dict[str, torch.Tensor],
-        neg_data: dict[str, torch.Tensor]
+        self, pos_data: dict[str, torch.Tensor], neg_data: dict[str, torch.Tensor]
     ) -> torch.Tensor:
         """Forward pass.
 

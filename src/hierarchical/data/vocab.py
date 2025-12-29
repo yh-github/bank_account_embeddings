@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 class CategoricalVocabulary:
     """Manages vocabularies for categorical features.
-    
+
     Attributes:
         token2id: Mapping from token string to integer ID.
         id2token: Mapping from integer ID to token string.
@@ -23,8 +23,8 @@ class CategoricalVocabulary:
 
     def __init__(self) -> None:
         """Initializes a new CategoricalVocabulary."""
-        self.token2id: dict[str, int] = {'<PAD>': 0, '<UNK>': 1}
-        self.id2token: dict[int, str] = {0: '<PAD>', 1: '<UNK>'}
+        self.token2id: dict[str, int] = {"<PAD>": 0, "<UNK>": 1}
+        self.id2token: dict[int, str] = {0: "<PAD>", 1: "<UNK>"}
         self.next_id: int = 2
 
     def fit(self, tokens: list[Any]) -> None:
@@ -34,7 +34,7 @@ class CategoricalVocabulary:
             tokens: A list of tokens (strings, numbers, etc.) to include.
                 None, empty strings, and NaNs are ignored.
         """
-        unique_tokens = set(tokens) - {None, '', np.nan}
+        unique_tokens = set(tokens) - {None, "", np.nan}
         # Sort for deterministic vocabulary generation
         for token in sorted(unique_tokens, key=str):
             token_str = str(token)
@@ -53,7 +53,11 @@ class CategoricalVocabulary:
             The integer ID of the token. Returns 0 (PAD) for empty/null tokens,
             and 1 (UNK) for tokens not in the vocabulary.
         """
-        if token is None or token == '' or (isinstance(token, float) and np.isnan(token)):
+        if (
+            token is None
+            or token == ""
+            or (isinstance(token, float) and np.isnan(token))
+        ):
             return 0  # PAD
         return self.token2id.get(str(token), 1)  # UNK if not found
 
@@ -66,7 +70,7 @@ class CategoricalVocabulary:
         Returns:
             The string representation of the token, or '<UNK>' if unknown.
         """
-        return self.id2token.get(token_id, '<UNK>')
+        return self.id2token.get(token_id, "<UNK>")
 
     def __len__(self) -> int:
         return len(self.token2id)
@@ -77,15 +81,18 @@ class CategoricalVocabulary:
         Args:
             path: The file path to save to.
         """
-        with open(path, 'wb') as f:
-            pickle.dump({
-                'token2id': self.token2id,
-                'id2token': self.id2token,
-                'next_id': self.next_id
-            }, f)
+        with open(path, "wb") as f:
+            pickle.dump(
+                {
+                    "token2id": self.token2id,
+                    "id2token": self.id2token,
+                    "next_id": self.next_id,
+                },
+                f,
+            )
 
     @classmethod
-    def load(cls, path: str) -> 'CategoricalVocabulary':
+    def load(cls, path: str) -> "CategoricalVocabulary":
         """Loads a vocabulary from a pickle file.
 
         Args:
@@ -94,12 +101,12 @@ class CategoricalVocabulary:
         Returns:
             The loaded CategoricalVocabulary instance.
         """
-        with open(path, 'rb') as f:
+        with open(path, "rb") as f:
             data = pickle.load(f)
         vocab = cls()
-        vocab.token2id = data['token2id']
-        vocab.id2token = data['id2token']
-        vocab.next_id = data['next_id']
+        vocab.token2id = data["token2id"]
+        vocab.id2token = data["id2token"]
+        vocab.next_id = data["next_id"]
         return vocab
 
 
@@ -115,7 +122,7 @@ class V4FeatureExtractor:
         cat_sub_vocab: CategoricalVocabulary,
         counter_party_vocab: CategoricalVocabulary,
         balance_extractor: Any = None,
-        epoch_date: datetime = datetime(2020, 1, 1)
+        epoch_date: datetime = datetime(2020, 1, 1),
     ) -> None:
         """Initializes the feature extractor.
 
@@ -146,7 +153,7 @@ class V4FeatureExtractor:
         dates_dt = pd.to_datetime(dates)
 
         dow = dates_dt.dt.dayofweek.values  # 0-6
-        dom = dates_dt.dt.day.values - 1    # 0-30
+        dom = dates_dt.dt.day.values - 1  # 0-30
         month = dates_dt.dt.month.values - 1  # 0-11
 
         # Days since epoch, normalized to [0, 1] range (roughly per year)
@@ -156,9 +163,7 @@ class V4FeatureExtractor:
         return np.stack([dow, dom, month, norm_days], axis=1).astype(np.float32)
 
     def extract_balance_features(
-        self,
-        account_id: str,
-        dates: pd.Series
+        self, account_id: str, dates: pd.Series
     ) -> np.ndarray | None:
         """Extracts balance features for a given account and dates.
 
@@ -189,17 +194,19 @@ class V4FeatureExtractor:
                 stats_dict = self.balance_extractor.get_window_stats(
                     account_id, start_date, end_date
                 )
-                
-                start_bal_val = self.balance_extractor.get_starting_balance(account_id, date) or 0.0
-                
+
+                start_bal_val = (
+                    self.balance_extractor.get_starting_balance(account_id, date) or 0.0
+                )
+
                 stats = [
-                    stats_dict.get('start_balance', 0.0) or 0.0,
-                    stats_dict.get('end_balance', 0.0) or 0.0,
-                    stats_dict.get('min_balance', 0.0) or 0.0,
-                    stats_dict.get('max_balance', 0.0) or 0.0,
-                    stats_dict.get('avg_balance', 0.0) or 0.0,
-                    stats_dict.get('balance_volatility', 0.0) or 0.0,
-                    start_bal_val
+                    stats_dict.get("start_balance", 0.0) or 0.0,
+                    stats_dict.get("end_balance", 0.0) or 0.0,
+                    stats_dict.get("min_balance", 0.0) or 0.0,
+                    stats_dict.get("max_balance", 0.0) or 0.0,
+                    stats_dict.get("avg_balance", 0.0) or 0.0,
+                    stats_dict.get("balance_volatility", 0.0) or 0.0,
+                    start_bal_val,
                 ]
                 balance_stats.append(stats)
 
@@ -234,8 +241,7 @@ class V4FeatureExtractor:
 
 
 def build_vocabularies(
-    df: pd.DataFrame,
-    save_dir: str | None = None
+    df: pd.DataFrame, save_dir: str | None = None
 ) -> tuple[CategoricalVocabulary, CategoricalVocabulary, CategoricalVocabulary]:
     """Builds vocabularies from transaction data.
 
@@ -262,9 +268,14 @@ def build_vocabularies(
                 vocab.fit(df[col].dropna().unique().tolist())
                 return
 
-    fit_vocab(cat_group_vocab, ['personeticsCategoryGroupId', 'p_categoryGroupId', 'categoryGroupId'])
-    fit_vocab(cat_sub_vocab, ['personeticsSubCategoryId', 'p_subCategoryId', 'subCategoryId'])
-    fit_vocab(counter_party_vocab, ['deviceId', 'counter_party', 'counterParty'])
+    fit_vocab(
+        cat_group_vocab,
+        ["personeticsCategoryGroupId", "p_categoryGroupId", "categoryGroupId"],
+    )
+    fit_vocab(
+        cat_sub_vocab, ["personeticsSubCategoryId", "p_subCategoryId", "subCategoryId"]
+    )
+    fit_vocab(counter_party_vocab, ["deviceId", "counter_party", "counterParty"])
 
     logger.info(f"  Category groups: {len(cat_group_vocab)}")
     logger.info(f"  Sub-categories: {len(cat_sub_vocab)}")
@@ -282,7 +293,7 @@ def build_vocabularies(
 
 
 def load_vocabularies(
-    save_dir: str
+    save_dir: str,
 ) -> tuple[CategoricalVocabulary, CategoricalVocabulary, CategoricalVocabulary]:
     """Loads vocabularies from a directory.
 
@@ -292,7 +303,13 @@ def load_vocabularies(
     Returns:
         A tuple of (cat_group_vocab, cat_sub_vocab, counter_party_vocab).
     """
-    cat_group_vocab = CategoricalVocabulary.load(os.path.join(save_dir, "cat_group_vocab.pkl"))
-    cat_sub_vocab = CategoricalVocabulary.load(os.path.join(save_dir, "cat_sub_vocab.pkl"))
-    counter_party_vocab = CategoricalVocabulary.load(os.path.join(save_dir, "counter_party_vocab.pkl"))
+    cat_group_vocab = CategoricalVocabulary.load(
+        os.path.join(save_dir, "cat_group_vocab.pkl")
+    )
+    cat_sub_vocab = CategoricalVocabulary.load(
+        os.path.join(save_dir, "cat_sub_vocab.pkl")
+    )
+    counter_party_vocab = CategoricalVocabulary.load(
+        os.path.join(save_dir, "counter_party_vocab.pkl")
+    )
     return cat_group_vocab, cat_sub_vocab, counter_party_vocab

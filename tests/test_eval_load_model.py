@@ -4,7 +4,6 @@ import os
 import tempfile
 import unittest
 import torch
-import numpy as np
 
 # Import actual production code
 from hierarchical.evaluation.evaluate import load_model
@@ -24,23 +23,23 @@ class TestEvalLoadModel(unittest.TestCase):
             num_counter_parties=10000,
             embedding_dim=hidden_dim,
             use_counter_party=True,
-            use_balance=True
+            use_balance=True,
         )
         day_enc = DayEncoder(
             txn_encoder=txn_enc,
             hidden_dim=hidden_dim,
             num_layers=2,  # DayEncoder uses fewer layers
-            num_heads=4
+            num_heads=4,
         )
         model = AccountEncoder(
             day_encoder=day_enc,
             hidden_dim=hidden_dim,
             num_layers=num_layers,
-            num_heads=4
+            num_heads=4,
         )
-        
+
         # Save (Simulate legacy checkpoint without 'config')
-        f = tempfile.NamedTemporaryFile(suffix='.pth', delete=False)
+        f = tempfile.NamedTemporaryFile(suffix=".pth", delete=False)
         save_path = f.name
         f.close()
         torch.save(model.state_dict(), save_path)
@@ -48,11 +47,12 @@ class TestEvalLoadModel(unittest.TestCase):
 
     def _make_batch_data(self, B: int, D: int, T: int, vocab_sizes: dict) -> dict:
         """Create batch data dict."""
+
         def make_stream(B: int, D: int, T: int) -> dict:
             return {
-                "cat_group": torch.randint(0, vocab_sizes['cat_grp'], (B, D, T)),
-                "cat_sub": torch.randint(0, vocab_sizes['cat_sub'], (B, D, T)),
-                "cat_cp": torch.randint(0, vocab_sizes['cat_cp'], (B, D, T)),
+                "cat_group": torch.randint(0, vocab_sizes["cat_grp"], (B, D, T)),
+                "cat_sub": torch.randint(0, vocab_sizes["cat_sub"], (B, D, T)),
+                "cat_cp": torch.randint(0, vocab_sizes["cat_cp"], (B, D, T)),
                 "amounts": torch.randn(B, D, T),
                 "dates": torch.zeros(B, D, T, 4),
                 "balance": torch.randn(B, D, T, 7),
@@ -73,26 +73,29 @@ class TestEvalLoadModel(unittest.TestCase):
     def test_load_legacy_model(self):
         """Test loading a legacy (state_dict only) checkpoint via real load_model."""
         hidden_dim = 64
-        checkpoint_path = self._create_and_save_model(hidden_dim=hidden_dim, num_layers=2)
-        
+        checkpoint_path = self._create_and_save_model(
+            hidden_dim=hidden_dim, num_layers=2
+        )
+
         try:
             # THIS CALLS REAL CODE
-            model = load_model(checkpoint_path, device='cpu', hidden_dim=hidden_dim)
-            
+            model = load_model(checkpoint_path, device="cpu", hidden_dim=hidden_dim)
+
             # Verify structure
             self.assertIsInstance(model, AccountEncoder)
             self.assertEqual(model.hidden_dim, hidden_dim)
             self.assertEqual(model.day_encoder.hidden_dim, hidden_dim)
             # Check inference
-            vocab_sizes = {'cat_grp': 36, 'cat_sub': 152, 'cat_cp': 10000}
+            vocab_sizes = {"cat_grp": 36, "cat_sub": 152, "cat_cp": 10000}
             batch = self._make_batch_data(B=2, D=5, T=10, vocab_sizes=vocab_sizes)
             with torch.no_grad():
                 out = model(batch)
             self.assertEqual(out.shape, (2, hidden_dim))
             self.assertFalse(torch.isnan(out).any())
-            
+
         finally:
             os.unlink(checkpoint_path)
+
 
 if __name__ == "__main__":
     unittest.main()

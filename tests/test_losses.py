@@ -80,7 +80,7 @@ class TestContrastiveLossWithHardNegatives(unittest.TestCase):
         emb_anchor = torch.randn(16, 64)
         emb_positive = emb_anchor + torch.randn(16, 64) * 0.1  # Similar to anchor
         emb_hard_neg = torch.randn(16, 64)  # Random hard negatives
-        
+
         loss_without = contrastive_loss(emb_anchor, emb_positive)
         loss_with = contrastive_loss_with_hard_negatives(
             emb_anchor, emb_positive, emb_hard_neg

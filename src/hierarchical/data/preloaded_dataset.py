@@ -11,11 +11,11 @@ class PreloadedDataset(Dataset):
     """Dataset from pre-loaded data (list or .pt file)."""
 
     def __init__(
-        self, 
-        data_source: str | list, 
-        augment: bool = False, 
-        max_days: int = 360, 
-        max_txns_per_day: int = 150
+        self,
+        data_source: str | list,
+        augment: bool = False,
+        max_days: int = 360,
+        max_txns_per_day: int = 150,
     ) -> None:
         """Initializes the PreloadedDataset.
 
@@ -43,9 +43,9 @@ class PreloadedDataset(Dataset):
 
         # Create a fresh container for the return value
         item = {
-            'account_id': start_item['account_id'],
-            'days': start_item['days'],  # Reference for now
-            'day_dates': start_item['day_dates']
+            "account_id": start_item["account_id"],
+            "days": start_item["days"],  # Reference for now
+            "day_dates": start_item["day_dates"],
         }
 
         # 2. Augment (or just slice)
@@ -53,15 +53,15 @@ class PreloadedDataset(Dataset):
             self.apply_augmentation(item)
         else:
             # Just Slice max_days if preproc was larger
-            if len(item['days']) > self.max_days:
-                item['days'] = item['days'][-self.max_days:]
-                item['day_dates'] = item['day_dates'][-self.max_days:]
+            if len(item["days"]) > self.max_days:
+                item["days"] = item["days"][-self.max_days :]
+                item["day_dates"] = item["day_dates"][-self.max_days :]
 
         return item
 
     def apply_augmentation(self, item: dict) -> None:
         """Applies random augmentation to the item."""
-        days = item['days']  # Reference
+        days = item["days"]  # Reference
         n_days = len(days)
 
         if n_days < 5:
@@ -76,13 +76,12 @@ class PreloadedDataset(Dataset):
             start = np.random.randint(0, n_days - window_size + 1)
 
             # Create NEW list slice (safe)
-            item['days'] = days[start:start + window_size]
+            item["days"] = days[start : start + window_size]
             # Ensure day_dates is sliced similarly
-            if isinstance(item['day_dates'], list):
-                item['day_dates'] = item['day_dates'][start:start + window_size]
+            if isinstance(item["day_dates"], list):
+                item["day_dates"] = item["day_dates"][start : start + window_size]
             else:
-                 item['day_dates'] = item['day_dates'][start:start + window_size]
-
+                item["day_dates"] = item["day_dates"][start : start + window_size]
 
         else:
             # Random Drop
@@ -96,11 +95,11 @@ class PreloadedDataset(Dataset):
 
             # Slice to max_days if still too big
             if len(indices_to_keep) > self.max_days:
-                indices_to_keep = indices_to_keep[-self.max_days:]
+                indices_to_keep = indices_to_keep[-self.max_days :]
 
-            item['days'] = [days[i] for i in indices_to_keep]
-            
-            if isinstance(item['day_dates'], list):
-                 item['day_dates'] = [item['day_dates'][i] for i in indices_to_keep]
+            item["days"] = [days[i] for i in indices_to_keep]
+
+            if isinstance(item["day_dates"], list):
+                item["day_dates"] = [item["day_dates"][i] for i in indices_to_keep]
             else:
-                 item['day_dates'] = item['day_dates'][indices_to_keep]
+                item["day_dates"] = item["day_dates"][indices_to_keep]

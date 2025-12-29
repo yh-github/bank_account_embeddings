@@ -7,11 +7,7 @@ from .vocab import (
     build_vocabularies,
     load_vocabularies,
 )
-from .loader import (
-    load_transactions,
-    load_accounts,
-    load_joint_bank_data
-)
+from .loader import load_transactions, load_accounts, load_joint_bank_data
 from .balance import BalanceFeatureExtractor
 
 from .preloaded_dataset import PreloadedDataset

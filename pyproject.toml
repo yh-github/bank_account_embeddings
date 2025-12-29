@@ -60,4 +60,5 @@ python_functions = ["test_*"]
 addopts = "-v --tb=short"
 filterwarnings = [
     "ignore:.*The PyTorch API of nested tensors.*:UserWarning"
+    "ignore:.*multi-threaded.*fork.*:DeprecationWarning",
 ]

@@ -32,7 +32,9 @@ class TestEvalPipeline(unittest.TestCase):
         self.day_dim = 32
         self.acc_dim = 32
         
-        txn_enc = TransactionEncoder(10, 10, 10, embedding_dim=self.txn_dim)
+        # Create encoder with use_balance=False to simplify test
+        txn_enc = TransactionEncoder(10, 10, 10, embedding_dim=self.txn_dim, 
+                                     use_balance=False, use_counter_party=False)
         day_enc = DayEncoder(txn_enc, hidden_dim=self.day_dim, num_layers=1)
         model = AccountEncoder(day_enc, hidden_dim=self.acc_dim, num_layers=1)
         
@@ -48,8 +50,8 @@ class TestEvalPipeline(unittest.TestCase):
             'num_layers': 1,
             'day_num_layers': 1,
             'num_heads': 2, # Must divide 32
-            'use_balance': True,
-            'use_counter_party': True
+            'use_balance': False,  # Must match the actual model creation
+            'use_counter_party': False  # Must match the actual model creation
         }
         torch.save({
             'model_state_dict': model.state_dict(),
@@ -93,9 +95,11 @@ class TestEvalPipeline(unittest.TestCase):
                  days.append(day_item)
             
             self.accounts.append({
-                'account_id': acc_id,
+                'account_id': f"testbank_{i}",  # Match global_id format bank_accountId
                 'days': days,
-                'day_dates': [f"2023-01-{d+1:02d}" for d in range(10)]
+                'day_dates': list(range(10)),  # Epoch days (integers), not date strings
+                'n_days': 10,
+                'total_txns': 50  # Total transactions = 10 days * 5 txns/day
             })
             
         torch.save(self.accounts, self.tensors_path)

@@ -72,6 +72,9 @@ def load_model(checkpoint_path, device, hidden_dim=128, model_type='hierarchical
         cat_cp_size = config['num_counter_parties']
         use_balance = config.get('use_balance', True)
         use_cp = config.get('use_counter_party', True)
+        
+        # Extract dimensions from config, with fallbacks
+        # Priority: txn_dim/day_dim/account_dim -> hidden_dim -> function parameter
         d_txn = config.get('txn_dim', config.get('hidden_dim', hidden_dim))
         d_day = config.get('day_dim', config.get('hidden_dim', hidden_dim))
         d_acc = config.get('account_dim', config.get('hidden_dim', hidden_dim))

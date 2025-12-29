@@ -110,16 +110,31 @@ class TestVariableDims(unittest.TestCase):
         day_dim = 64
         acc_dim = 128
         
-        # Create Model
-        txn_enc = TransactionEncoder(10, 10, 10, embedding_dim=txn_dim)
+        # Create Model (use_balance=False to simplify test)
+        txn_enc = TransactionEncoder(10, 10, 10, embedding_dim=txn_dim, use_balance=False)
         day_enc = DayEncoder(txn_enc, hidden_dim=day_dim)
         model = AccountEncoder(day_enc, hidden_dim=acc_dim)
         
-        # Save State Dict
-        sd = model.state_dict()
+        # Save with embedded config (new format) so load_model can detect dimensions
+        config = {
+            'num_categories_group': 10,
+            'num_categories_sub': 10,
+            'num_counter_parties': 10,
+            'txn_dim': txn_dim,
+            'day_dim': day_dim,
+            'account_dim': acc_dim,
+            'num_layers': 4,  # AccountEncoder default
+            'day_num_layers': 2,  # DayEncoder default  
+            'num_heads': 4,
+            'use_balance': False,  # Must match model creation
+            'use_counter_party': True
+        }
         
         with tempfile.NamedTemporaryFile(suffix='.pth', delete=False) as tmp:
-            torch.save(sd, tmp.name)
+            torch.save({
+                'model_state_dict': model.state_dict(),
+                'config': config
+            }, tmp.name)
             tmp_path = tmp.name
             
         try:

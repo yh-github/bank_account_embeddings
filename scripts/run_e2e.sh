@@ -20,6 +20,7 @@
 #   - emerging_flags.csv: Evaluation labels
 
 set -e
+export PYTHONPATH=src
 
 # Experiment ID (default: e2e_test)
 EXP_ID="${1:-e2e_test}"

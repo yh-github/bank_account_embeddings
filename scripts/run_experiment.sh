@@ -102,7 +102,7 @@ if [ ! -f "$MODEL_CKPT" ]; then
     MODEL_CKPT="$EXP_DIR/model/best_model.pt"
 fi
 
-python -m hierarchical.evaluation.unified_eval_optimized \
+python -m hierarchical.evaluation.evaluate \
     --tensors_path "$TENSOR_FILE" \
     --emerging_csv "$EMERGING_CSV" \
     --model_checkpoint "$MODEL_CKPT" \

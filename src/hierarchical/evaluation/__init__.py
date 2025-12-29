@@ -2,16 +2,16 @@
 
 from .evaluate import (
     load_model,
-    cache_embeddings,
-    build_training_set,
-    train_and_evaluate,
+    embed_batch,
+    compute_lift_curve,
+    calculate_confidence,
     main,
 )
 
 __all__ = [
     "load_model",
-    "cache_embeddings",
-    "build_training_set",
-    "train_and_evaluate",
+    "embed_batch",
+    "compute_lift_curve",
+    "calculate_confidence",
     "main",
 ]

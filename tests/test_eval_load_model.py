@@ -17,7 +17,7 @@ from hierarchical.models.account import AccountEncoder
 
 
 class TestEvalLoadModel(unittest.TestCase):
-    """Tests that mimic unified_eval_optimized.py's load_model function."""
+    """Tests that mimic evaluate.py's load_model function."""
 
     def _create_and_save_model(self, hidden_dim=256, num_layers=4) -> str:
         """Create a model, save it, and return the path."""

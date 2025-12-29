@@ -149,7 +149,7 @@ echo ""
 echo "[3/3] Running Evaluation"
 echo "----------------------------------------------------------------"
 
-python -m hierarchical.evaluation.unified_eval_optimized \
+python -m hierarchical.evaluation.evaluate \
     --tensors_path "$TENSOR_FILE" \
     --emerging_csv "$EMERGING_CSV" \
     --model_checkpoint "$MODEL_CKPT" \

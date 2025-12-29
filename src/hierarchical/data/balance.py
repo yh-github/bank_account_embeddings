@@ -84,20 +84,6 @@ def _prepare_inputs(
             f"Removed {duplicates_removed} duplicate transactions (by accountId, id)"
         )
 
-    # Check for transactions after balanceDateTime
-    df_txn_with_balance_date = df_transactions.merge(
-        df_accounts[["accountId", "balanceDateTime"]], on="accountId", how="left"
-    )
-    future_txns = df_txn_with_balance_date[
-        df_txn_with_balance_date["date"] > df_txn_with_balance_date["balanceDateTime"]
-    ]
-    if len(future_txns) > 0:
-        affected_accounts = future_txns["accountId"].nunique()
-        logger.warning(
-            f"Found {len(future_txns)} transactions after balanceDateTime in {affected_accounts} accounts. "
-            "This may cause incorrect balance calculation."
-        )
-
     # Sort transactions
     df_transactions = df_transactions.sort_values(
         ["accountId", "date", "id"]

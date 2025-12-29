@@ -35,6 +35,13 @@ try:
 except ImportError:
     HAS_CLEANLAB = False
 
+try:
+    from pulearn import ElkanotoPuClassifier
+
+    HAS_PULEARN = True
+except ImportError:
+    HAS_PULEARN = False
+
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )

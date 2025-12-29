@@ -59,7 +59,7 @@ class HierarchicalDataset(Dataset):
 
         # Filter by account IDs if provided
         if account_ids is not None:
-            transactions = transactions[transactions['accountId'].isin(account_ids)]
+            transactions = transactions[transactions['accountId'].isin(account_ids)].copy()
 
         # Ensure date column exists and is datetime
         if 'date' not in transactions.columns:

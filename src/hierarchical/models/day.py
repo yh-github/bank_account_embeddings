@@ -99,21 +99,25 @@ class DayEncoder(nn.Module):
              txn_emb = self.input_proj(txn_emb)
 
         input_mask = mask.bool()
+        
+        # Optimization: Return early if all empty
         if (~input_mask).all():
-            # All padded - return zero
-            return torch.zeros(mask.size(0), self.hidden_dim, device=txn_emb.device)
+             return torch.zeros(mask.size(0), self.hidden_dim, device=txn_emb.device)
 
         # 2. Transformer
         # Transformer expects True for IGNORED positions
         key_padding_mask = ~input_mask
-
-        # processed = self.transformer(txn_emb, src_key_padding_mask=key_padding_mask)
         
-        # Manual Layer Loop with Optional Checkpointing
+        # Prevent NaN: If a row is all True (all masked), set first col to False
+        all_masked = key_padding_mask.all(dim=1)
+        if all_masked.any():
+            key_padding_mask = key_padding_mask.clone()
+            key_padding_mask[all_masked, 0] = False
+
+        # Manual Layer Loop
         x = txn_emb
         for layer in self.layers:
             if self.use_checkpointing and x.requires_grad:
-                # checkpoint requires inputs to require_grad
                 x = torch.utils.checkpoint.checkpoint(layer, x, src_key_padding_mask=key_padding_mask, use_reentrant=False)
             else:
                 x = layer(x, src_key_padding_mask=key_padding_mask)
@@ -125,9 +129,10 @@ class DayEncoder(nn.Module):
         sum_emb = (processed * mask_expanded).sum(dim=1)
         cnt = mask_expanded.sum(dim=1).clamp(min=1e-9)
 
-        pooled = sum_emb / cnt
-
-        # If has_data is False (day level), ensure zero
+        pooled = sum_emb / cnt # [N, Dim]
+        
+        # Apply has_data mask (Day level)
+        # has_data is [B, D]
         has_data_mask = has_data.unsqueeze(-1).float()
         return pooled * has_data_mask
 

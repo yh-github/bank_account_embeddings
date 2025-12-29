@@ -56,6 +56,13 @@ class TestE2ETraining(unittest.TestCase):
         shutil.rmtree(self.test_dir)
 
     def test_training_loop(self):
+        # Set seeds for reproducibility
+        torch.manual_seed(42)
+        import random
+        random.seed(42)
+        import numpy as np
+        np.random.seed(42)
+
         # Mock Arguments
         args = SimpleNamespace(
             output_dir=self.output_dir,
@@ -76,7 +83,7 @@ class TestE2ETraining(unittest.TestCase):
             account_dim=16,
             use_amount_binning=False,
             num_amount_bins=10,
-            lr=1e-3,
+            lr=1e-4, # Lower LR for stability
             num_workers=0, # Important for tests
             use_balance=True,
             use_counter_party=True,
@@ -94,6 +101,8 @@ class TestE2ETraining(unittest.TestCase):
         
 
         # Verification
+        if not os.path.exists(os.path.join(self.output_dir, 'model_best.pth')):
+             print(f"Contents of {self.output_dir}: {os.listdir(self.output_dir)}")
         self.assertTrue(os.path.exists(os.path.join(self.output_dir, 'model_best.pth')), "Model checkpoint not found")
         self.assertTrue(os.path.exists(os.path.join(self.output_dir, 'vocabularies', 'cat_group_vocab.pkl')), "Vocab not found")
         self.assertTrue(os.path.exists(os.path.join(self.output_dir, 'train_ids.npy')), "Train split not saved")

@@ -61,4 +61,5 @@ addopts = "-v --tb=short"
 filterwarnings = [
     "ignore:.*The PyTorch API of nested tensors.*:UserWarning"
     "ignore:.*multi-threaded.*fork.*:DeprecationWarning",
+    "ignore:.*multi-threaded.*fork.*:DeprecationWarning",
 ]

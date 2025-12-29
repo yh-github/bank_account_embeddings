@@ -250,7 +250,7 @@ def main():
     )
     parser.add_argument("--account_file", required=True)
     parser.add_argument("--output_dir", required=True)
-    parser.add_argument("--min_days", type=int, default=10)
+    parser.add_argument("--min_days", type=int, default=9)
     parser.add_argument(
         "--censor_subcat",
         help="Optional: Censor (remove) specific subCategory ID from inputs",

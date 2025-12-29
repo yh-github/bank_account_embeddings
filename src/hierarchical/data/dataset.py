@@ -241,18 +241,19 @@ def collate_hierarchical(batch: list[dict[str, Any]]) -> dict[str, Any]:
     has_cp = False
 
     # Inspect the first valid day in the batch to detect optional features
+    # Inspect items to detect optional features
     for item in batch:
+        if has_balance and has_cp:
+            break
         for day in item["days"]:
+            if has_balance and has_cp:
+                break
             for stream in [day["pos"], day["neg"]]:
                 if stream:
                     if stream.get("balance") is not None:
                         has_balance = True
                     if stream.get("cat_cp") is not None:
                         has_cp = True
-            if has_balance or has_cp:
-                break  # Optimization: stop checking once found (assuming consistency)
-        if has_balance or has_cp:
-            break
 
     def init_stream_tensors(T_dim: int) -> dict[str, torch.Tensor | None]:
         tensors: dict[str, torch.Tensor | None] = {

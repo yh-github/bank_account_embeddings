@@ -101,13 +101,14 @@ class TestEvalPipeline(unittest.TestCase):
         torch.save(self.accounts, self.tensors_path)
         
         # 3. Create Emerging Flags CSV
-        # Needs accountId, flag, date
+        # Needs accountId, flag_name, bank, emerging_date (required by evaluate.py)
         # acc_0, acc_1 -> Positive
         # acc_2, acc_3, acc_4 -> Negative (no flag)
         df = pd.DataFrame({
-            'accountId': ['acc_0', 'acc_1'],
+            'accountId': ['0', '1'],  # Account IDs without prefix
+            'bank': ['testbank', 'testbank'],  # Added missing 'bank' column
             'flag_name': ['EMERGING_SAVINGS', 'EMERGING_SAVINGS'],
-            'date': ['2023-01-08', '2023-01-09'] # Trigger date
+            'emerging_date': ['2023-01-08', '2023-01-09']  # Renamed from 'date' to 'emerging_date'
         })
         df.to_csv(self.flags_path, index=False)
 

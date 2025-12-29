@@ -27,12 +27,7 @@ from sklearn.metrics import roc_auc_score
 from xgboost import XGBClassifier
 from sklearn.linear_model import LogisticRegression
 
-# PU Learning - treat unlabeled samples as potentially positive
-try:
-    from pulearn import BaggingPuClassifier, ElkanotoPuClassifier
-    HAS_PULEARN = True
-except ImportError:
-    HAS_PULEARN = False
+
 
 # Cleanlab - confident learning for noisy labels
 try:
@@ -151,18 +146,15 @@ def load_model(checkpoint_path, device, hidden_dim=128, model_type='hierarchical
         num_heads=num_heads
     )
     
-    if model_type == 'day_ae':
-        raise ValueError("DayAutoEncoder not supported in this release")
-    else:
-        # 3. Account Encoder (Standard Hierarchical)
-        model = AccountEncoder(
-            day_encoder=day_encoder,
-            hidden_dim=d_acc,
-            num_layers=num_layers,
-            num_heads=num_heads
-        ).to(device)
-        
-        model.load_state_dict(state_dict)
+    # 3. Account Encoder (Standard Hierarchical)
+    model = AccountEncoder(
+        day_encoder=day_encoder,
+        hidden_dim=d_acc,
+        num_layers=num_layers,
+        num_heads=num_heads
+    ).to(device)
+    
+    model.load_state_dict(state_dict)
         
     model.eval()
     return model
@@ -519,8 +511,7 @@ def main():
     pos_emb_hard = {}  # (acc_id, flag, T) -> emb
     pos_feat_hard = {}
     
-    # Note: Easy mode (detection) is kept as unused code below for reference
-    # pos_emb_easy, pos_feat_easy were used for "easy" detection task
+
     
     for flag in tqdm(all_flags, desc="Flags"):
         flag_positives = emerging_df[emerging_df['flag_name'] == flag]
@@ -600,9 +591,7 @@ def main():
                     X_train_emb, y_train = [], []
                     X_train_feat = []
                 
-                    for acc_id in train_negative_ids: # Only iterate subsampled train negatives + positives
-                         # pass # handled below - REMOVED GARBAGE
-                         pass 
+                    # Train negatives are handled in the loop below (lines 620-629)
 
                     # Build from positives
                     pos_count = 0
@@ -663,18 +652,7 @@ def main():
                     clf_lin_emb = LogisticRegression(max_iter=1000, class_weight='balanced', random_state=seed)
                     clf_lin_emb.fit(X_train_emb, y_train)
                     
-                    # 6. PU Learning (BaggingPuClassifier) - kept but not used
-                    clf_bpu_emb, clf_bpu_feat = None, None
-                    # if HAS_PULEARN:
-                    #     try:
-                    #         base_xgb = XGBClassifier(n_estimators=20, max_depth=2, learning_rate=0.1, random_state=seed, verbosity=0, n_jobs=-1)
-                    #         clf_bpu_emb = BaggingPuClassifier(estimator=base_xgb, n_estimators=5, n_jobs=-1, random_state=seed)
-                    #         clf_bpu_emb.fit(X_train_emb, y_train)
-                    #         clf_bpu_feat = BaggingPuClassifier(estimator=base_xgb, n_estimators=5, n_jobs=-1, random_state=seed)
-                    #         clf_bpu_feat.fit(X_train_feat, y_train)
-                    #     except Exception as e:
-                    #         pass
-                    
+
                     # 7. CleanLearning (cleanlab) - confident learning for noisy labels
                     clf_pul_emb, clf_pul_feat = None, None
                     if HAS_CLEANLAB:
@@ -689,15 +667,7 @@ def main():
                         except Exception as e:
                             pass  # CleanLearning failed, continue without it
                     
-                    # 8. ElkanotoPuClassifier - disabled (fails on flags with few positives)
-                    clf_epu_emb = None
-                    # if HAS_PULEARN:
-                    #     try:
-                    #         base_lr_epu = LogisticRegression(max_iter=1000, random_state=seed, n_jobs=-1)
-                    #         clf_epu_emb = ElkanotoPuClassifier(estimator=base_lr_epu, hold_out_ratio=0.1)
-                    #         clf_epu_emb.fit(X_train_emb, y_train)
-                    #     except Exception as e:
-                    #         pass
+
                     
                     # --- Build Test Set ---
                     X_test_emb, X_test_feat, y_test = [], [], []

@@ -58,7 +58,25 @@ nohup bash scripts/run_e2e.sh > e2e.log 2>&1 &
 tail -f e2e.log
 ```
 
-## 4. Updates
+## 4. Data Preparation (Optional)
+If you need to regenerate the `data/` directory from raw bank dumps:
+
+1.  **Configure Paths**:
+    Copy `config/default.yaml` to `config/local.yaml` and set `data_dir` to the raw data location (e.g., `~/projects/embeddings_poc/src/data/primacy2/Data`).
+
+2.  **Run Consolidation**:
+    ```bash
+    python -m scripts.data_prep.consolidate_data --config config/local.yaml
+    ```
+    *Creates `transactions.csv` and `accounts.csv`.*
+
+3.  **Generate Labels**:
+    ```bash
+    python -m scripts.data_prep.generate_labels --config config/local.yaml
+    ```
+    *Creates `emerging_flags.csv`.*
+
+## 5. Updates
 When pulling new code:
 ```bash
 git pull

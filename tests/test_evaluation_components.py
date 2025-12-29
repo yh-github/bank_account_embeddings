@@ -1,7 +1,7 @@
 import unittest
 import numpy as np
 import pandas as pd
-from hierarchical.evaluation.unified_eval_optimized import (
+from hierarchical.evaluation.evaluate import (
     calculate_confidence,
     compute_lift_curve,
     generate_granular_curve,

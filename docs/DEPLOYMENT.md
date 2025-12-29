@@ -7,7 +7,7 @@
 - **IP**: `10.218.0.9`
 - **User**: `azureuser`
 - **Project Directory**: `~/projects/bank_account_embeddings`
-- **Virtual Environment**: `~/projects/bank_account_embeddings/venv` (New, isolated)
+- **Virtual Environment**: `~/projects/bank_account_embeddings/venv`
 
 ## 2. Initial Setup (One-Time)
 
